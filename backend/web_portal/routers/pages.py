@@ -167,6 +167,7 @@ def home() -> RedirectResponse:
 @router.get("/onboarding", response_class=HTMLResponse)
 def onboarding_page(request: Request, error: str = "") -> HTMLResponse:
     return templates.TemplateResponse(
+        request,
         "onboarding.html",
         {
             "request": request,
@@ -223,6 +224,7 @@ def company_auth_page(request: Request, error: str = "") -> HTMLResponse:
         return RedirectResponse(url="/company/dashboard", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "company_auth.html",
         {
             "request": request,
@@ -239,6 +241,7 @@ def company_signup_page(request: Request, error: str = "") -> HTMLResponse:
         return RedirectResponse(url="/company/dashboard", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "company_signup.html",
         {
             "request": request,
@@ -322,6 +325,7 @@ def company_job_step1_page(request: Request, error: str = "") -> HTMLResponse:
 
     draft = _load_company_draft(request)
     return templates.TemplateResponse(
+        request,
         "company_job_step1.html",
         {
             "request": request,
@@ -389,6 +393,7 @@ def company_job_step2_page(request: Request, error: str = "") -> HTMLResponse:
     required = [display_skill(str(item)) for item in draft.get("required_skills", [])]
 
     return templates.TemplateResponse(
+        request,
         "company_job_step2.html",
         {
             "request": request,
@@ -465,6 +470,7 @@ def company_dashboard_page(
         return RedirectResponse(url=f"/company/job/create/step1?error={escaped}", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "company_dashboard.html",
         {
             "request": request,
@@ -551,6 +557,7 @@ def dashboard_page(
         return RedirectResponse(url=f"/onboarding?error={escaped}", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
             "request": request,
@@ -755,6 +762,7 @@ def skill_test_page(request: Request, student_id: int, goal_skill_id: int) -> HT
         chatbot_context = None
 
     return templates.TemplateResponse(
+        request,
         "skill_test.html",
         {
             "request": request,
@@ -792,6 +800,7 @@ def skill_test_result_page(
         chatbot_context = None
 
     return templates.TemplateResponse(
+        request,
         "skill_test.html",
         {
             "request": request,
