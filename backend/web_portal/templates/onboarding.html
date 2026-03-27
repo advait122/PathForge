@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}Goal Setup | CodeMap{% endblock %}
+{% block body_class %}onboarding-page student-onboarding-page{% endblock %}
+{% block page_styles %}
+<link href="/static/css/onboarding.css?v={{ asset_version }}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<section class="setup-shell">
+    <div class="setup-card setup-card-modern">
+        <div class="setup-left setup-left-showcase student-showcase">
+            <div class="showcase-brand codemap-wordmark">CodeMap</div>
+
+            <div class="student-track" aria-hidden="true">
+                <div class="track-row is-active">
+                    <span class="track-point">1</span>
+                    <div class="track-card">
+                        <strong>Data Structures</strong>
+                        <span>128 min - 7 videos</span>
+                    </div>
+                </div>
+                <div class="track-row">
+                    <span class="track-point">2</span>
+                    <div class="track-card">
+                        <strong>Algorithms</strong>
+                        <span>95 min - 4 videos</span>
+                    </div>
+                </div>
+                <div class="track-row">
+                    <span class="track-point">3</span>
+                    <div class="track-card">
+                        <strong>JavaScript</strong>
+                        <span>140 min - 6 videos</span>
+                    </div>
+                </div>
+                <div class="track-row">
+                    <span class="track-point">4</span>
+                    <div class="track-card">
+                        <strong>System Design</strong>
+                        <span>110 min - 5 videos</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-copy setup-copy-showcase">
+                <h3>Build your plan,</h3>
+                <h3>one smart step at a time.</h3>
+                <p>Your personalized roadmap to land your dream role.</p>
+            </div>
+        </div>
+
+        <div class="setup-right setup-right-modern">
+            <p class="setup-step-label" id="onboardingStepLabel">STEP 1 OF 3</p>
+            <h2 class="setup-title">Build Your Learning Plan</h2>
+            <p class="setup-subtitle">Complete 3 quick steps to generate a personalized roadmap.</p>
+
+            <div class="step-tracker">
+                <span class="tracker-dot active" data-step-dot="1"></span>
+                <span class="tracker-dot" data-step-dot="2"></span>
+                <span class="tracker-dot" data-step-dot="3"></span>
+            </div>
+
+            {% if error %}
+                <div class="alert alert-danger mb-3">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" action="/onboarding" id="onboarding-form">
+                <div class="step-pane active" data-step="1">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Your Name</label>
+                            <input type="text" name="name" class="form-control onboarding-input" placeholder="e.g. Dhruv Bhatia" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Branch</label>
+                            <select name="branch" class="form-select onboarding-input" required>
+                                <option value="" disabled selected>Select branch</option>
+                                {% for branch in branch_options %}
+                                    <option value="{{ branch }}">{{ branch }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Current Year</label>
+                            <select name="current_year" class="form-select onboarding-input" required>
+                                <option value="" disabled selected>Select year</option>
+                                {% for year in year_options %}
+                                    <option value="{{ year }}">{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary step-btn onboarding-next-btn mt-4" data-next-step="2">
+                        <span>Continue to Goal Setup</span>
+                        <span class="onboarding-next-arrow" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <div class="step-pane" data-step="2">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Goal</label>
+                            <input
+                                type="text"
+                                name="goal_text"
+                                class="form-control onboarding-input"
+                                placeholder="Example: Job in Google as software engineer"
+                                required
+                            >
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Timeline</label>
+                            <select name="target_duration_months" class="form-select onboarding-input" required>
+                                {% for month in timeline_options %}
+                                    <option value="{{ month }}" {% if month == 24 %}selected{% endif %}>{{ month }} months</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Weekly Hours</label>
+                            <input
+                                type="number"
+                                name="weekly_study_hours"
+                                class="form-control onboarding-input"
+                                min="2"
+                                max="60"
+                                value="{{ default_weekly_hours }}"
+                                required
+                            >
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Current CGPA</label>
+                            <input
+                                type="number"
+                                name="cgpa"
+                                class="form-control onboarding-input"
+                                min="0"
+                                max="10"
+                                step="0.01"
+                                placeholder="Example: 8.2"
+                                required
+                            >
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Active Backlog?</label>
+                            <div class="onboarding-toggle-group">
+                                <label class="onboarding-toggle-pill">
+                                    <input type="radio" name="active_backlog" value="yes">
+                                    Yes
+                                </label>
+                                <label class="onboarding-toggle-pill">
+                                    <input type="radio" name="active_backlog" value="no" checked>
+                                    No
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-actions mt-4">
+                        <button type="button" class="btn btn-outline-secondary step-btn" data-prev-step="1">Back</button>
+                        <button type="button" class="btn btn-primary step-btn" data-next-step="3">Confirm Goal</button>
+                    </div>
+                </div>
+
+                <div class="step-pane" data-step="3">
+                    <label class="form-label">Current Skills</label>
+                    <div class="skill-bubbles mb-3">
+                        {% for skill in predefined_skills %}
+                            <div class="skill-option">
+                                <input
+                                    class="skill-check"
+                                    type="checkbox"
+                                    name="selected_skills"
+                                    value="{{ skill }}"
+                                    id="skill_{{ loop.index }}"
+                                >
+                                <label class="skill-bubble" for="skill_{{ loop.index }}">{{ skill }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <label class="form-label">Add Other Skills (optional)</label>
+                    <textarea
+                        name="custom_skills"
+                        class="form-control onboarding-input"
+                        rows="3"
+                        placeholder="Example: Flask, React, Computer Networks"
+                    ></textarea>
+
+                    <div class="step-actions mt-4">
+                        <button type="button" class="btn btn-outline-secondary step-btn" data-prev-step="2">Back</button>
+                        <button type="submit" class="btn btn-primary step-btn">Generate My Roadmap</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<script>
+    (function () {
+        const form = document.getElementById("onboarding-form");
+        if (!form) return;
+
+        const panes = Array.from(form.querySelectorAll(".step-pane"));
+        const dots = Array.from(document.querySelectorAll("[data-step-dot]"));
+        const stepLabel = document.getElementById("onboardingStepLabel");
+        const ribbonCompanyBtn = document.getElementById("ribbonCompanyBtn");
+        let currentStep = 1;
+        let hideCompanyRibbonButton = false;
+
+        function initGlassSelects() {
+            const selects = Array.from(form.querySelectorAll("select.onboarding-input"));
+            selects.forEach((select, idx) => {
+                if (select.dataset.glassReady === "1") return;
+                select.dataset.glassReady = "1";
+
+                if (select.required) {
+                    select.dataset.required = "1";
+                    select.required = false;
+                }
+
+                select.classList.add("native-select-hidden");
+                const glassId = `glass_select_${idx}_${Date.now()}`;
+                select.dataset.glassId = glassId;
+
+                const ui = document.createElement("div");
+                ui.className = "glass-select";
+                ui.id = glassId;
+
+                const trigger = document.createElement("button");
+                trigger.type = "button";
+                trigger.className = "glass-select-trigger";
+
+                const menu = document.createElement("div");
+                menu.className = "glass-select-menu";
+
+                const options = Array.from(select.options);
+                options.forEach((opt) => {
+                    if (opt.disabled && !opt.value) return;
+                    const item = document.createElement("button");
+                    item.type = "button";
+                    item.className = "glass-option";
+                    item.textContent = opt.text;
+                    item.dataset.value = opt.value;
+                    item.addEventListener("click", () => {
+                        select.value = opt.value;
+                        select.dispatchEvent(new Event("change", { bubbles: true }));
+                        ui.classList.remove("open");
+                        refresh();
+                    });
+                    menu.appendChild(item);
+                });
+
+                function positionMenu() {
+                    ui.classList.remove("open-up");
+                    menu.style.maxHeight = "220px";
+
+                    const rect = trigger.getBoundingClientRect();
+                    const spaceBelow = window.innerHeight - rect.bottom - 12;
+                    const spaceAbove = rect.top - 12;
+                    const shouldOpenUp = spaceBelow < 170 && spaceAbove > spaceBelow;
+                    const availableSpace = Math.max(
+                        130,
+                        Math.floor(shouldOpenUp ? spaceAbove : spaceBelow),
+                    );
+                    menu.style.maxHeight = Math.min(220, availableSpace) + "px";
+
+                    if (shouldOpenUp) ui.classList.add("open-up");
+                }
+
+                function refresh() {
+                    const selected = select.options[select.selectedIndex];
+                    trigger.textContent = selected ? selected.text : "Select";
+                    trigger.classList.remove("is-invalid");
+
+                    const allItems = Array.from(menu.querySelectorAll(".glass-option"));
+                    allItems.forEach((item) => {
+                        item.classList.toggle("active", item.dataset.value === select.value);
+                    });
+                }
+
+                trigger.addEventListener("click", () => {
+                    const wasOpen = ui.classList.contains("open");
+                    document.querySelectorAll(".glass-select.open").forEach((openUi) => {
+                        if (openUi !== ui) openUi.classList.remove("open");
+                    });
+                    if (wasOpen) {
+                        ui.classList.remove("open");
+                        return;
+                    }
+                    ui.classList.add("open");
+                    positionMenu();
+                });
+
+                select.addEventListener("change", refresh);
+                window.addEventListener("resize", () => {
+                    if (ui.classList.contains("open")) positionMenu();
+                });
+
+                ui.appendChild(trigger);
+                ui.appendChild(menu);
+                select.insertAdjacentElement("afterend", ui);
+                refresh();
+            });
+
+            document.addEventListener("click", (event) => {
+                const target = event.target;
+                if (!(target instanceof Element)) return;
+                if (!target.closest(".glass-select")) {
+                    document.querySelectorAll(".glass-select.open").forEach((openUi) => {
+                        openUi.classList.remove("open");
+                    });
+                }
+            });
+        }
+
+        function setStep(step) {
+            currentStep = step;
+            panes.forEach((pane) => {
+                const paneStep = Number(pane.getAttribute("data-step"));
+                pane.classList.toggle("active", paneStep === currentStep);
+            });
+            dots.forEach((dot) => {
+                const dotStep = Number(dot.getAttribute("data-step-dot"));
+                dot.classList.toggle("active", dotStep <= currentStep);
+            });
+
+            if (stepLabel) {
+                stepLabel.textContent = `STEP ${currentStep} OF 3`;
+            }
+
+            if (currentStep > 1) {
+                hideCompanyRibbonButton = true;
+            }
+            if (ribbonCompanyBtn) {
+                ribbonCompanyBtn.style.display = hideCompanyRibbonButton ? "none" : "inline-flex";
+            }
+        }
+
+        function validateStep(step) {
+            const pane = form.querySelector('.step-pane[data-step="' + step + '"]');
+            if (!pane) return true;
+            const requiredFields = pane.querySelectorAll("input[required], select[required], textarea[required]");
+            for (const field of requiredFields) {
+                if (!field.checkValidity()) {
+                    field.reportValidity();
+                    return false;
+                }
+            }
+
+            const requiredCustomSelects = pane.querySelectorAll("select.native-select-hidden[data-required='1']");
+            for (const select of requiredCustomSelects) {
+                if (!select.value) {
+                    const glassId = select.getAttribute("data-glass-id");
+                    if (glassId) {
+                        const trigger = document.querySelector(`#${glassId} .glass-select-trigger`);
+                        if (trigger) trigger.classList.add("is-invalid");
+                    }
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        form.querySelectorAll("[data-next-step]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const nextStep = Number(btn.getAttribute("data-next-step"));
+                if (validateStep(currentStep)) {
+                    setStep(nextStep);
+                }
+            });
+        });
+
+        form.querySelectorAll("[data-prev-step]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const prevStep = Number(btn.getAttribute("data-prev-step"));
+                setStep(prevStep);
+            });
+        });
+
+        let transitioningOut = false;
+        form.addEventListener("submit", (event) => {
+            if (transitioningOut) return;
+            if (currentStep !== 3) {
+                event.preventDefault();
+                return;
+            }
+            if (!validateStep(currentStep)) {
+                event.preventDefault();
+                return;
+            }
+
+            event.preventDefault();
+            transitioningOut = true;
+            document.body.classList.add("page-exit");
+            window.setTimeout(() => form.submit(), 320);
+        });
+
+        initGlassSelects();
+        setStep(1);
+    })();
+</script>
+{% endblock %}

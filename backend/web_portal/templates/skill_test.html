@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Skill Test | CodeMap{% endblock %}
+{% block body_class %}skill-test-page{% endblock %}
+{% block page_styles %}
+<link href="/static/css/skill_test.css?v={{ asset_version }}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<section class="page-card p-4 p-md-5">
+    <h2 class="h4 mb-2">Skill Test</h2>
+    <p class="text-muted mb-4">
+        Attempt {{ assessment.attempt_no }} | {{ assessment.answer_key|length }} questions | Pass threshold: 70%
+    </p>
+
+    {% if show_results %}
+        <div class="alert {% if assessment.passed == 1 %}alert-success{% else %}alert-warning{% endif %} mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <strong>Score: {{ "%.1f"|format(assessment.score_percent or 0.0) }}%</strong>
+                    {% if assessment_review %}
+                        <div class="small mt-1">
+                            {{ assessment_review.correct_count }}/{{ assessment_review.total_questions }} correct |
+                            {{ assessment_review.wrong_count }} wrong
+                        </div>
+                    {% endif %}
+                </div>
+                <span class="badge {% if assessment.passed == 1 %}text-bg-success{% else %}text-bg-warning{% endif %}">
+                    {% if assessment.passed == 1 %}Passed{% else %}Needs Improvement{% endif %}
+                </span>
+            </div>
+            {% if assessment.feedback_text %}
+                <p class="mb-0 mt-2">{{ assessment.feedback_text }}</p>
+            {% endif %}
+        </div>
+
+        {% if assessment_review %}
+            {% for item in assessment_review.questions %}
+                <div class="mb-4">
+                    <p class="fw-semibold mb-2">{{ loop.index }}. {{ item.question }}</p>
+                    <p class="small text-muted mb-2">
+                        Topic: {{ item.topic }} | Difficulty: {{ item.difficulty|title }}
+                    </p>
+                    <ul class="list-group">
+                        {% for option in item.options %}
+                            <li class="list-group-item d-flex justify-content-between align-items-start
+                                {% if option.is_selected and option.is_correct %}list-group-item-success{% elif option.is_selected and not option.is_correct %}list-group-item-danger{% elif option.is_correct %}list-group-item-success-subtle{% endif %}">
+                                <span>{{ option.text }}</span>
+                                <span class="d-flex gap-1">
+                                    {% if option.is_selected %}
+                                        <span class="badge text-bg-primary">Your Answer</span>
+                                    {% endif %}
+                                    {% if option.is_correct %}
+                                        <span class="badge text-bg-success">Correct</span>
+                                    {% endif %}
+                                </span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <hr>
+            {% endfor %}
+        {% endif %}
+
+        <div class="d-flex gap-2">
+            {% if assessment.passed == 1 %}
+                <a href="/students/{{ student.id }}/dashboard?section=tests" class="btn btn-primary">Back to Tests</a>
+                <a href="/students/{{ student.id }}/dashboard?section=tasks" class="btn btn-outline-secondary">Go to Tasks</a>
+            {% else %}
+                <a href="/students/{{ student.id }}/skills/{{ assessment.goal_skill_id }}/test" class="btn btn-primary">Retake Test</a>
+                <a href="/students/{{ student.id }}/dashboard?section=tests" class="btn btn-outline-secondary">Back to Tests</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+            <span>Time limit: {{ test_duration_minutes }} minutes</span>
+            <strong id="testTimer" data-deadline="{{ test_deadline_iso or '' }}">Time Left: --:--</strong>
+        </div>
+
+        <form id="skillTestForm" method="post" action="/students/{{ student.id }}/skills/tests/{{ assessment.id }}/submit">
+            {% for q in assessment.questions %}
+                {% set q_idx = loop.index0 %}
+                <div class="mb-4">
+                    <p class="fw-semibold mb-2">{{ loop.index }}. {{ q.question }}</p>
+                    {% for option in q.options %}
+                        <div class="form-check">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="answer_{{ q_idx }}"
+                                id="q{{ q_idx }}_{{ loop.index0 }}"
+                                value="{{ loop.index0 }}"
+                                required
+                            >
+                            <label class="form-check-label" for="q{{ q_idx }}_{{ loop.index0 }}">
+                                {{ option }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+                <hr>
+            {% endfor %}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Submit Test</button>
+                <a href="/students/{{ student.id }}/dashboard?section=tests" class="btn btn-outline-secondary">Back to Tests</a>
+            </div>
+        </form>
+
+        <script>
+            (function () {
+                const timerEl = document.getElementById("testTimer");
+                const form = document.getElementById("skillTestForm");
+                if (!timerEl || !form) return;
+
+                const deadlineText = timerEl.getAttribute("data-deadline") || "";
+                const deadline = Date.parse(deadlineText);
+                if (!Number.isFinite(deadline)) {
+                    timerEl.textContent = "Time Left: 30:00";
+                    return;
+                }
+
+                function formatTime(msLeft) {
+                    const totalSeconds = Math.max(0, Math.floor(msLeft / 1000));
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                }
+
+                function tick() {
+                    const remaining = deadline - Date.now();
+                    timerEl.textContent = `Time Left: ${formatTime(remaining)}`;
+                    if (remaining <= 0) {
+                        if (intervalId !== null) {
+                            clearInterval(intervalId);
+                        }
+                        timerEl.textContent = "Time Left: 00:00";
+                        form.submit();
+                    }
+                }
+
+                let intervalId = null;
+                tick();
+                intervalId = window.setInterval(tick, 1000);
+            })();
+        </script>
+    {% endif %}
+</section>
+{% endblock %}

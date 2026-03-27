@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Company Sign Up | CodeMap{% endblock %}
+{% block body_class %}onboarding-page company-page company-auth-page company-signup-page{% endblock %}
+{% block page_styles %}
+<link href="/static/css/onboarding.css?v={{ asset_version }}" rel="stylesheet">
+<link href="/static/css/company.css?v={{ asset_version }}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<section class="setup-shell company-auth-shell">
+    <div class="setup-card setup-card-modern company-auth-layout">
+        <div class="setup-left setup-left-showcase company-showcase">
+            <div class="showcase-brand codemap-wordmark">CodeMap</div>
+
+            <div class="talent-stack" aria-hidden="true">
+                <article class="talent-chip-card">
+                    <div class="talent-avatar">DB</div>
+                    <div class="talent-meta">
+                        <h4>Dhruv Bhatia</h4>
+                        <div class="talent-tags">
+                            <span>Python</span>
+                            <span>DSA</span>
+                            <span>ML</span>
+                        </div>
+                    </div>
+                    <div class="talent-score">94%<small>match</small></div>
+                </article>
+
+                <article class="talent-chip-card">
+                    <div class="talent-avatar is-green">SR</div>
+                    <div class="talent-meta">
+                        <h4>Sneha Rao</h4>
+                        <div class="talent-tags">
+                            <span>Java</span>
+                            <span>Spring</span>
+                            <span>SQL</span>
+                        </div>
+                    </div>
+                    <div class="talent-score">88%<small>match</small></div>
+                </article>
+
+                <article class="talent-chip-card">
+                    <div class="talent-avatar is-blue">AK</div>
+                    <div class="talent-meta">
+                        <h4>Arjun Kumar</h4>
+                        <div class="talent-tags">
+                            <span>JS</span>
+                            <span>React</span>
+                            <span>Node</span>
+                        </div>
+                    </div>
+                    <div class="talent-score">81%<small>match</small></div>
+                </article>
+            </div>
+
+            <div class="setup-copy setup-copy-showcase">
+                <h3>Build your company desk,</h3>
+                <h3>ready to hire faster.</h3>
+                <p>Post opportunities and access skill-matched student lists instantly.</p>
+            </div>
+        </div>
+
+        <div class="setup-right setup-right-modern company-auth-right">
+            <p class="company-auth-kicker">Company Console</p>
+            <h2 class="setup-title">Create company account</h2>
+            <p class="setup-subtitle">Create account first, then continue to job setup.</p>
+
+            <nav class="company-auth-tabs" aria-label="Company auth tabs">
+                <a href="/company/auth" class="company-auth-tab">Login</a>
+                <a href="/company/signup" class="company-auth-tab is-active">Sign Up</a>
+            </nav>
+
+            {% if error %}
+                <div class="alert alert-danger mb-3">{{ error }}</div>
+            {% endif %}
+
+            <section class="company-auth-card company-auth-card-single">
+                <form method="post" action="/company/signup" class="company-auth-form">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input
+                            type="text"
+                            name="username"
+                            class="form-control onboarding-input"
+                            placeholder="your@company.com"
+                            required
+                        >
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input
+                            type="password"
+                            name="password"
+                            class="form-control onboarding-input"
+                            placeholder="........"
+                            required
+                        >
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input
+                            type="password"
+                            name="confirm_password"
+                            class="form-control onboarding-input"
+                            placeholder="........"
+                            required
+                        >
+                    </div>
+                    <div class="company-auth-actions">
+                        <button type="submit" class="btn btn-primary step-btn company-auth-primary">Create account</button>
+                    </div>
+                </form>
+
+                <div class="company-auth-divider"><span>or</span></div>
+
+                <a href="/company/auth" class="btn btn-outline-secondary step-btn company-auth-secondary">
+                    Back to login
+                </a>
+                <p class="company-auth-footnote">
+                    Are you a student?
+                    <a href="/onboarding">Student login -></a>
+                </p>
+            </section>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,89 @@
+<article class="opportunity-bucket-card">
+    <header class="opportunity-bucket-ribbon">
+        <h3 class="opportunity-bucket-title">{{ bucket_label }}</h3>
+        <span class="opportunity-bucket-meta">Skills matched &middot; Updated today</span>
+    </header>
+
+    <div class="opportunity-bucket-body">
+        {% if items %}
+            <div class="opportunity-grid">
+                {% for item in items %}
+                    {% set company_text = item.company or "ORG" %}
+                    {% set company_code = company_text | replace(" ", "") | upper %}
+                    {% set match_percent = "%.0f"|format((item.match_score or 0) * 100) %}
+                    <article
+                        class="opportunity-card"
+                        data-opp-type="{{ (item.type or 'unknown') | lower }}"
+                        data-work-mode="{{ (item.work_mode or 'any') | lower }}"
+                        data-country="{{ (item.country or '') | lower }}"
+                        data-state="{{ (item.state or '') | lower }}"
+                        data-city="{{ (item.city or '') | lower }}"
+                    >
+                        <div class="opportunity-card-top">
+                            <span class="opportunity-logo">
+                                {% if item.company_logo_url %}
+                                    <img
+                                        src="{{ item.company_logo_url }}"
+                                        alt="{{ company_text }} logo"
+                                        class="opportunity-logo-img"
+                                        loading="lazy"
+                                        referrerpolicy="no-referrer"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+                                    >
+                                    <span class="opportunity-logo-fallback" style="display: none;">{{ company_code[:4] }}</span>
+                                {% else %}
+                                    <span class="opportunity-logo-fallback">{{ company_code[:4] }}</span>
+                                {% endif %}
+                            </span>
+                            <span class="opportunity-status-pill {% if bucket_key == 'eligible_now' %}is-eligible{% elif bucket_key == 'almost_eligible' %}is-almost{% else %}is-coming{% endif %}">
+                                <span class="opportunity-status-dot" aria-hidden="true"></span>
+                                {% if bucket_key == "eligible_now" %}
+                                    Eligible
+                                {% elif bucket_key == "almost_eligible" %}
+                                    Almost
+                                {% else %}
+                                    Coming Soon
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <h4 class="opportunity-card-title">{{ item.title }}</h4>
+                        <p class="opportunity-card-meta">{{ item.company }}{% if item.type %} &middot; {{ item.type }}{% endif %}</p>
+
+                        <div class="opportunity-card-skills">
+                            {% if item.missing_skills %}
+                                {% for skill in item.missing_skills[:3] %}
+                                    <span class="opportunity-skill-pill">{{ skill | replace("_", " ") | title }}</span>
+                                {% endfor %}
+                            {% elif item.next_skills %}
+                                {% for skill in item.next_skills[:3] %}
+                                    <span class="opportunity-skill-pill">{{ skill }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="opportunity-skill-pill">All Skills Matched</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="opportunity-card-divider"></div>
+                        <div class="opportunity-card-foot">
+                            <div class="opportunity-match-wrap">
+                                <span class="opportunity-match-track">
+                                    <span class="opportunity-match-fill" style="width: {{ match_percent }}%;"></span>
+                                </span>
+                                <span class="opportunity-match-text">{{ match_percent }}% match</span>
+                            </div>
+                            {% if item.url %}
+                                <a class="opportunity-view-link" href="{{ item.url }}" target="_blank" rel="noreferrer">View &rarr;</a>
+                            {% else %}
+                                <span class="opportunity-view-link is-disabled">View &rarr;</span>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+            <p class="opportunity-filter-empty" hidden>No opportunities match the current filters.</p>
+        {% else %}
+            <p class="text-muted mb-0">No opportunities in this bucket yet.</p>
+        {% endif %}
+    </div>
+</article>
