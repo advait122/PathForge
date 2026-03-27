@@ -36,6 +36,7 @@ router = APIRouter()
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+STUDENT_COOKIE_KEY = "student_session_id"
 COMPANY_COOKIE_KEY = "company_session_id"
 COMPANY_DRAFT_COOKIE_KEY = "company_job_draft"
 CODING_TEST_DURATION_MINUTES = 150
@@ -183,6 +184,17 @@ def _current_company(request: Request) -> dict | None:
     return company_service.get_company(company_id)
 
 
+def _current_student(request: Request) -> dict | None:
+    raw_student_id = request.cookies.get(STUDENT_COOKIE_KEY)
+    if not raw_student_id:
+        return None
+    try:
+        student_id = int(raw_student_id)
+    except ValueError:
+        return None
+    return students_repo.get_student(student_id)
+
+
 def _load_company_draft(request: Request) -> dict:
     raw = request.cookies.get(COMPANY_DRAFT_COOKIE_KEY)
     if not raw:
@@ -197,15 +209,16 @@ def _load_company_draft(request: Request) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
-def home() -> RedirectResponse:
-    students = students_repo.list_students()
-    if students:
-        return RedirectResponse(url=f"/students/{students[0]['id']}/dashboard", status_code=303)
+def home(request: Request) -> RedirectResponse:
+    student = _current_student(request)
+    if student is not None:
+        return RedirectResponse(url=f"/students/{student['id']}/dashboard", status_code=303)
     return RedirectResponse(url="/onboarding", status_code=303)
 
 
 @router.get("/onboarding", response_class=HTMLResponse)
-def onboarding_page(request: Request, error: str = "") -> HTMLResponse:
+def onboarding_page(request: Request, error: str = "", mode: str = "signup") -> HTMLResponse:
+    auth_mode = "login" if (mode or "").strip().lower() == "login" else "signup"
     return templates.TemplateResponse(
         request,
         "onboarding.html",
@@ -218,6 +231,7 @@ def onboarding_page(request: Request, error: str = "") -> HTMLResponse:
             "timeline_options": TIMELINE_MONTH_OPTIONS,
             "predefined_skills": PREDEFINED_SKILLS,
             "default_weekly_hours": DEFAULT_WEEKLY_STUDY_HOURS,
+            "auth_mode": auth_mode,
         },
     )
 
@@ -225,6 +239,8 @@ def onboarding_page(request: Request, error: str = "") -> HTMLResponse:
 @router.post("/onboarding")
 def onboarding_submit(
     name: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
     branch: str = Form(...),
     current_year: int = Form(...),
     weekly_study_hours: int = Form(DEFAULT_WEEKLY_STUDY_HOURS),
@@ -238,6 +254,8 @@ def onboarding_submit(
     try:
         result = onboarding_service.create_student_goal_plan(
             name=name,
+            password=password,
+            confirm_password=confirm_password,
             branch=branch,
             current_year=current_year,
             weekly_study_hours=weekly_study_hours,
@@ -252,9 +270,37 @@ def onboarding_submit(
         matching_service.refresh_opportunity_matches(student_id)
     except ValueError as error:
         escaped = quote_plus(str(error))
-        return RedirectResponse(f"/onboarding?error={escaped}", status_code=303)
+        return RedirectResponse(f"/onboarding?mode=signup&error={escaped}", status_code=303)
 
-    return RedirectResponse(url=f"/students/{student_id}/dashboard", status_code=303)
+    response = RedirectResponse(url=f"/students/{student_id}/dashboard", status_code=303)
+    response.set_cookie(
+        STUDENT_COOKIE_KEY,
+        str(student_id),
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@router.post("/student/login")
+def student_login(
+    name: str = Form(...),
+    password: str = Form(...),
+) -> RedirectResponse:
+    try:
+        student = onboarding_service.login_student(name=name, password=password)
+    except ValueError as error:
+        escaped = quote_plus(str(error))
+        return RedirectResponse(f"/onboarding?mode=login&error={escaped}", status_code=303)
+
+    response = RedirectResponse(url=f"/students/{student['id']}/dashboard", status_code=303)
+    response.set_cookie(
+        STUDENT_COOKIE_KEY,
+        str(student["id"]),
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
 
 @router.get("/company/auth", response_class=HTMLResponse)

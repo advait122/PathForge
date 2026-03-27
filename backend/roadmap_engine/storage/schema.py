@@ -16,6 +16,17 @@ BASE_TABLE_STATEMENTS = [
     );
     """,
     """
+    CREATE TABLE IF NOT EXISTS student_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL UNIQUE,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+    );
+    """,
+    """
     CREATE TABLE IF NOT EXISTS student_skills (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         student_id INTEGER NOT NULL,
@@ -264,6 +275,7 @@ LEGACY_TABLES_TO_DROP = [
 
 
 INDEX_STATEMENTS = [
+    "CREATE INDEX IF NOT EXISTS idx_student_accounts_username ON student_accounts(username);",
     "CREATE INDEX IF NOT EXISTS idx_student_skills_student ON student_skills(student_id);",
     "CREATE INDEX IF NOT EXISTS idx_career_goals_student_status ON career_goals(student_id, status);",
     "CREATE INDEX IF NOT EXISTS idx_goal_skills_goal_status ON career_goal_skills(goal_id, status);",

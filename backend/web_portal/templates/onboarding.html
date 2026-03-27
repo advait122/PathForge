@@ -5,6 +5,7 @@
 <link href="/static/css/onboarding.css?v={{ asset_version }}" rel="stylesheet">
 {% endblock %}
 {% block content %}
+{% set auth_mode_value = auth_mode if auth_mode else "signup" %}
 <section class="setup-shell">
     <div class="setup-card setup-card-modern">
         <div class="setup-left setup-left-showcase student-showcase">
@@ -50,10 +51,10 @@
 
         <div class="setup-right setup-right-modern">
             <p class="setup-step-label" id="onboardingStepLabel">STEP 1 OF 3</p>
-            <h2 class="setup-title">Build Your Learning Plan</h2>
-            <p class="setup-subtitle">Complete 3 quick steps to generate a personalized roadmap.</p>
+            <h2 class="setup-title" id="onboardingTitle">Build Your Learning Plan</h2>
+            <p class="setup-subtitle" id="onboardingSubtitle">Complete 3 quick steps to generate a personalized roadmap.</p>
 
-            <div class="step-tracker">
+            <div class="step-tracker" id="onboardingStepTracker">
                 <span class="tracker-dot active" data-step-dot="1"></span>
                 <span class="tracker-dot" data-step-dot="2"></span>
                 <span class="tracker-dot" data-step-dot="3"></span>
@@ -63,12 +64,52 @@
                 <div class="alert alert-danger mb-3">{{ error }}</div>
             {% endif %}
 
+            <div class="d-flex gap-2 mb-3" id="studentAuthModeToggle">
+                <button
+                    type="button"
+                    class="btn btn-sm {% if auth_mode_value == 'login' %}btn-outline-secondary{% else %}btn-primary{% endif %}"
+                    data-auth-mode-btn="signup"
+                >
+                    Sign Up
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-sm {% if auth_mode_value == 'login' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                    data-auth-mode-btn="login"
+                >
+                    Login
+                </button>
+            </div>
+
+            <div id="signupFlow">
             <form method="post" action="/onboarding" id="onboarding-form">
                 <div class="step-pane active" data-step="1">
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label">Your Name</label>
                             <input type="text" name="name" class="form-control onboarding-input" placeholder="e.g. Dhruv Bhatia" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input
+                                type="password"
+                                name="password"
+                                class="form-control onboarding-input"
+                                placeholder="At least 6 characters"
+                                minlength="6"
+                                required
+                            >
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Confirm Password</label>
+                            <input
+                                type="password"
+                                name="confirm_password"
+                                class="form-control onboarding-input"
+                                placeholder="Re-enter password"
+                                minlength="6"
+                                required
+                            >
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Branch</label>
@@ -191,6 +232,36 @@
                     </div>
                 </div>
             </form>
+            </div>
+
+            <form method="post" action="/student/login" id="student-login-form" class="d-none">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Name</label>
+                        <input
+                            type="text"
+                            name="name"
+                            class="form-control onboarding-input"
+                            placeholder="e.g. Dhruv Bhatia"
+                            required
+                        >
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Password</label>
+                        <input
+                            type="password"
+                            name="password"
+                            class="form-control onboarding-input"
+                            placeholder="Enter your password"
+                            minlength="6"
+                            required
+                        >
+                    </div>
+                </div>
+                <div class="step-actions mt-4">
+                    <button type="submit" class="btn btn-primary step-btn">Login</button>
+                </div>
+            </form>
         </div>
     </div>
 </section>
@@ -198,7 +269,14 @@
 <script>
     (function () {
         const form = document.getElementById("onboarding-form");
-        if (!form) return;
+        const signupFlow = document.getElementById("signupFlow");
+        const loginForm = document.getElementById("student-login-form");
+        const authModeButtons = Array.from(document.querySelectorAll("[data-auth-mode-btn]"));
+        const stepTracker = document.getElementById("onboardingStepTracker");
+        const titleEl = document.getElementById("onboardingTitle");
+        const subtitleEl = document.getElementById("onboardingSubtitle");
+        const initialAuthMode = "{{ auth_mode_value }}" === "login" ? "login" : "signup";
+        if (!form || !signupFlow || !loginForm) return;
 
         const panes = Array.from(form.querySelectorAll(".step-pane"));
         const dots = Array.from(document.querySelectorAll("[data-step-dot]"));
@@ -206,6 +284,36 @@
         const ribbonCompanyBtn = document.getElementById("ribbonCompanyBtn");
         let currentStep = 1;
         let hideCompanyRibbonButton = false;
+
+        function setAuthMode(mode) {
+            const resolved = mode === "login" ? "login" : "signup";
+            const isSignup = resolved === "signup";
+            signupFlow.classList.toggle("d-none", !isSignup);
+            loginForm.classList.toggle("d-none", isSignup);
+
+            if (stepLabel) stepLabel.style.display = isSignup ? "" : "none";
+            if (stepTracker) stepTracker.style.display = isSignup ? "" : "none";
+            if (titleEl) titleEl.textContent = isSignup ? "Build Your Learning Plan" : "Welcome Back";
+            if (subtitleEl) {
+                subtitleEl.textContent = isSignup
+                    ? "Complete 3 quick steps to generate a personalized roadmap."
+                    : "Login with your name and password.";
+            }
+
+            authModeButtons.forEach((btn) => {
+                const btnMode = btn.getAttribute("data-auth-mode-btn");
+                const active = btnMode === resolved;
+                btn.classList.toggle("btn-primary", active);
+                btn.classList.toggle("btn-outline-secondary", !active);
+            });
+        }
+
+        authModeButtons.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const nextMode = btn.getAttribute("data-auth-mode-btn");
+                setAuthMode(nextMode);
+            });
+        });
 
         function initGlassSelects() {
             const selects = Array.from(form.querySelectorAll("select.onboarding-input"));
@@ -397,6 +505,7 @@
 
         initGlassSelects();
         setStep(1);
+        setAuthMode(initialAuthMode);
     })();
 </script>
 {% endblock %}

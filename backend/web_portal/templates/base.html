@@ -10,6 +10,7 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
     {% set chat_ctx = chatbot_context if chatbot_context is defined else (dashboard.chatbot if dashboard is defined else None) %}
+    {% set playlist_ctx = playlist_nav if playlist_nav is defined else (dashboard if dashboard is defined else None) %}
     <nav class="navbar navbar-expand-lg bg-white border-bottom mb-4">
         <div class="container">
             {% set brand_href = "/" %}
@@ -30,7 +31,7 @@
                     <a href="{{ dashboard_url }}?section=tasks" class="ribbon-link {% if current_section == 'tasks' %}active{% endif %}">Tasks</a>
                     <a href="{{ dashboard_url }}?section=tests" class="ribbon-link {% if current_section == 'tests' %}active{% endif %}">Tests</a>
                     <a href="/mentor/hub?student_id={{ student.id }}" class="ribbon-link {% if current_section == 'mentor' %}active{% endif %}">Mentor Hub</a>
-                    {% if dashboard is defined %}
+                    {% if playlist_ctx %}
                     <div class="ribbon-playlist-dropdown" id="ribbonPlaylistDropdown">
                         <button
                             type="button"
@@ -52,15 +53,15 @@
                         >
                             <header class="ribbon-playlist-header">
                                 <h3 id="ribbonPlaylistTitle" class="ribbon-playlist-title mb-0">Current Skill Playlist</h3>
-                                {% if dashboard.active_skill %}
-                                    <p class="ribbon-playlist-subtitle mb-0">{{ dashboard.active_skill.skill_name }}</p>
+                                {% if playlist_ctx.active_skill %}
+                                    <p class="ribbon-playlist-subtitle mb-0">{{ playlist_ctx.active_skill.skill_name }}</p>
                                 {% endif %}
                             </header>
 
-                            {% if dashboard.active_skill %}
-                                {% if dashboard.active_skill_recommendations %}
+                            {% if playlist_ctx.active_skill %}
+                                {% if playlist_ctx.active_skill_recommendations %}
                                     <div class="ribbon-playlist-list">
-                                        {% for item in dashboard.active_skill_recommendations %}
+                                        {% for item in playlist_ctx.active_skill_recommendations %}
                                             <article class="ribbon-playlist-item {% if item.is_selected == 1 %}is-selected{% endif %}">
                                                 <div class="ribbon-playlist-item-top">
                                                     <div class="ribbon-playlist-item-copy">
@@ -90,7 +91,7 @@
                                                     </div>
                                                     <form
                                                         method="post"
-                                                        action="/students/{{ student.id }}/skills/{{ dashboard.active_skill.id }}/playlist/select?section={{ current_section }}"
+                                                        action="/students/{{ student.id }}/skills/{{ playlist_ctx.active_skill.id }}/playlist/select?section={{ current_section }}"
                                                         class="ribbon-playlist-form"
                                                     >
                                                         <input type="hidden" name="recommendation_id" value="{{ item.id }}">
@@ -134,8 +135,8 @@
                                     </div>
                                 {% else %}
                                     <p class="ribbon-playlist-empty mb-0">
-                                        {% if dashboard.playlist_recommendation_error %}
-                                            {{ dashboard.playlist_recommendation_error }}
+                                        {% if playlist_ctx.playlist_recommendation_error %}
+                                            {{ playlist_ctx.playlist_recommendation_error }}
                                         {% else %}
                                             No playlist suggestions available yet.
                                         {% endif %}
@@ -260,7 +261,7 @@
             {% elif request.url.path in ["/company/auth", "/company/signup"] %}
                 <div class="ribbon-nav" aria-hidden="true"></div>
                 <div class="topbar-actions">
-                    <a id="ribbonStudentBtn" href="/onboarding" class="ribbon-company-link">
+                    <a id="ribbonStudentBtn" href="/onboarding?mode=login" class="ribbon-company-link">
                         Login as Student
                     </a>
                 </div>
@@ -282,7 +283,7 @@
     <main class="container pb-5">
         {% block content %}{% endblock %}
     </main>
-    {% if dashboard is defined %}
+    {% if playlist_ctx %}
     <div id="summaryModalOverlay" class="summary-modal-overlay" aria-hidden="true">
         <div class="summary-modal-card" role="dialog" aria-modal="true" aria-labelledby="summaryModalTitle">
             <div class="summary-modal-header">

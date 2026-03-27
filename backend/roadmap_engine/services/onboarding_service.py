@@ -1,3 +1,4 @@
+import hashlib
 import math
 from datetime import timedelta
 
@@ -16,6 +17,14 @@ from backend.roadmap_engine.services.goal_intelligence_service import parse_goal
 from backend.roadmap_engine.services.skill_normalizer import deduplicate_skills, normalize_skill
 from backend.roadmap_engine.storage import goals_repo, roadmap_repo, students_repo
 from backend.roadmap_engine.utils import end_date_from_months, parse_custom_skills, utc_today
+
+
+def _normalize_login_name(name: str) -> str:
+    return (name or "").strip().lower()
+
+
+def _hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def _estimate_skill_hours(normalized_skill: str) -> float:
@@ -93,6 +102,8 @@ def _build_tasks(
 def create_student_goal_plan(
     *,
     name: str,
+    password: str,
+    confirm_password: str,
     branch: str,
     current_year: int,
     weekly_study_hours: int,
@@ -104,10 +115,19 @@ def create_student_goal_plan(
     target_duration_months: int,
 ) -> dict:
     cleaned_name = name.strip()
+    login_name = _normalize_login_name(cleaned_name)
     cleaned_goal_text = goal_text.strip()
 
     if not cleaned_name:
         raise ValueError("Name is required.")
+    if not login_name:
+        raise ValueError("Name is required.")
+    if not password:
+        raise ValueError("Password is required.")
+    if len(password) < 6:
+        raise ValueError("Password must be at least 6 characters.")
+    if password != confirm_password:
+        raise ValueError("Passwords do not match.")
     if branch not in BRANCH_OPTIONS:
         raise ValueError("Please select a valid branch.")
     if current_year not in YEAR_OPTIONS:
@@ -129,8 +149,9 @@ def create_student_goal_plan(
 
     custom_skills = parse_custom_skills(custom_skills_text)
     all_known_skills = deduplicate_skills(selected_skills + custom_skills)
-    if not all_known_skills:
-        raise ValueError("Add at least one current skill.")
+
+    if students_repo.get_student_account_by_username(login_name):
+        raise ValueError("Name already exists. Please login instead.")
 
     student_id = students_repo.create_student(
         name=cleaned_name,
@@ -139,6 +160,11 @@ def create_student_goal_plan(
         weekly_study_hours=weekly_study_hours or DEFAULT_WEEKLY_STUDY_HOURS,
         cgpa=cgpa_value,
         has_active_backlog=bool(active_backlog),
+    )
+    students_repo.create_student_account(
+        student_id=student_id,
+        username=login_name,
+        password_hash=_hash_password(password),
     )
 
     predefined_normalized = {normalize_skill(skill) for skill in PREDEFINED_SKILLS}
@@ -208,3 +234,20 @@ def create_student_goal_plan(
         "plan_id": plan_id,
         "task_count": len(roadmap_tasks),
     }
+
+
+def login_student(*, name: str, password: str) -> dict:
+    login_name = _normalize_login_name(name)
+    if not login_name or not password:
+        raise ValueError("Name and password are required.")
+
+    account = students_repo.get_student_account_by_username(login_name)
+    if account is None:
+        raise ValueError("Invalid name or password.")
+    if account["password_hash"] != _hash_password(password):
+        raise ValueError("Invalid name or password.")
+
+    student = students_repo.get_student(int(account["student_id"]))
+    if student is None:
+        raise ValueError("Student account is invalid. Please sign up again.")
+    return student

@@ -42,6 +42,49 @@ def create_student(
         return int(cursor.lastrowid)
 
 
+def create_student_account(*, student_id: int, username: str, password_hash: str) -> int:
+    now = utc_now_iso()
+    with transaction() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO student_accounts (
+                student_id,
+                username,
+                password_hash,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (student_id, username, password_hash, now, now),
+        )
+        return int(cursor.lastrowid)
+
+
+def get_student_account_by_username(username: str) -> dict | None:
+    connection = get_connection()
+    try:
+        row = connection.execute(
+            """
+            SELECT
+                id,
+                student_id,
+                username,
+                password_hash,
+                created_at,
+                updated_at
+            FROM student_accounts
+            WHERE username = ?
+            """,
+            (username,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    return dict(row) if row else None
+
+
 def get_student(student_id: int) -> dict | None:
     connection = get_connection()
     try:

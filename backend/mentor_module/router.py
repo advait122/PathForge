@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from backend.mentor_module.services import chat_service, mentor_service
 from backend.mentor_module.storage import mentor_repo
 from backend.roadmap_engine.services.skill_normalizer import display_skill, normalize_skill
-from backend.roadmap_engine.storage import goals_repo, students_repo
+from backend.roadmap_engine.storage import goals_repo, playlist_repo, students_repo
 
 router = APIRouter(prefix="/mentor", tags=["mentor"])
 
@@ -31,6 +31,76 @@ def _student_or_404(student_id: int) -> dict:
 def _session_access_check(session: dict, student_id: int) -> None:
     if student_id not in (int(session["seeker_id"]), int(session["mentor_id"])):
         raise HTTPException(status_code=403, detail="Access denied.")
+
+
+def _humanize_summary_value(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for key, val in value.items():
+            cleaned = _humanize_summary_value(val)
+            if not cleaned:
+                continue
+            key_label = str(key).replace("_", " ").strip().title()
+            lines.append(f"{key_label}: {cleaned}")
+        return "\n".join(lines)
+    if isinstance(value, (list, tuple, set)):
+        lines: list[str] = []
+        for item in value:
+            cleaned = _humanize_summary_value(item)
+            if not cleaned:
+                continue
+            for segment in cleaned.splitlines():
+                segment = segment.strip()
+                if segment:
+                    lines.append(f"- {segment}")
+        return "\n".join(lines)
+    return str(value).strip()
+
+
+def _clean_recommendation_summaries(recommendations: list[dict]) -> list[dict]:
+    cleaned: list[dict] = []
+    for item in recommendations:
+        normalized_item = dict(item)
+        summary = normalized_item.get("summary", {}) or {}
+        normalized_item["summary_human"] = {
+            "topic_overview": _humanize_summary_value(summary.get("topic_overview")) or "Not available.",
+            "learning_experience": _humanize_summary_value(summary.get("learning_experience")) or "Not available.",
+            "topics_covered_summary": (
+                _humanize_summary_value(summary.get("topics_covered_summary")) or "Not available."
+            ),
+        }
+        cleaned.append(normalized_item)
+    return cleaned
+
+
+def _playlist_nav_for_student(student_id: int) -> dict | None:
+    active_goal = goals_repo.get_active_goal(student_id)
+    if active_goal is None:
+        return None
+
+    goal_skills = goals_repo.list_goal_skills(int(active_goal["id"]))
+    active_skill = next((item for item in goal_skills if item["status"] != "completed"), None)
+    if active_skill is None:
+        return {
+            "active_skill": None,
+            "active_skill_recommendations": [],
+            "playlist_recommendation_error": "",
+        }
+
+    recommendations = playlist_repo.list_skill_recommendations(
+        int(active_goal["id"]),
+        int(active_skill["id"]),
+    )[:3]
+    recommendations = _clean_recommendation_summaries(recommendations)
+    return {
+        "active_skill": active_skill,
+        "active_skill_recommendations": recommendations,
+        "playlist_recommendation_error": "" if recommendations else "No playlist suggestions available yet.",
+    }
 
 
 @router.post("/opt-in")
@@ -136,6 +206,7 @@ def mentor_list_page(
             "open_mentor_sessions": open_mentor_sessions,
             "error": error,
             "active_section": "mentor",
+            "playlist_nav": _playlist_nav_for_student(student_id),
         },
     )
 
@@ -197,6 +268,7 @@ def session_page(
             "error": error,
             "success": success,
             "active_section": "mentor",
+            "playlist_nav": _playlist_nav_for_student(student_id),
         },
     )
 
@@ -356,5 +428,6 @@ def mentor_hub(
             "error": error,
             "success": success,
             "active_section": "mentor",
+            "playlist_nav": _playlist_nav_for_student(student_id),
         },
     )
