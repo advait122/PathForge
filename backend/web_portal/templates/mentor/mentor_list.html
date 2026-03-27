@@ -1,0 +1,91 @@
+﻿{% extends "base.html" %}
+{% block title %}Find a Mentor - {{ skill_display }} | CodeMap{% endblock %}
+{% block page_styles %}
+<link href="/static/css/mentor.css?v={{ asset_version }}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<div class="mentor-page">
+    <div class="page-card p-4 mb-4">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div>
+                <h2 class="h4 mb-1">Mentors for <span class="text-primary">{{ skill_display }}</span></h2>
+                <p class="text-muted small mb-0">
+                    Students who completed this skill through CodeMap and opted in to mentor.
+                </p>
+            </div>
+            <a href="/students/{{ student.id }}/dashboard?section=doubtbot" class="btn btn-sm btn-outline-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger mb-4">{{ error }}</div>
+    {% endif %}
+
+    {% if mentors %}
+        <div class="mentor-cards">
+            {% for m in mentors %}
+            <div class="page-card p-4 mentor-card">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <span class="fw-semibold fs-6">{{ m.student_name }}</span>
+                            {% if m.badge_level %}
+                                <span class="mentor-badge mentor-badge-{{ m.badge_level }}">{{ m.badge_level|title }} Mentor</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-muted small">{{ m.branch }} | Year {{ m.current_year }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="mentor-grade-value">{{ m.grade }}</div>
+                        <div class="text-muted small">Mentor Grade</div>
+                    </div>
+                </div>
+
+                <div class="mentor-metrics d-flex gap-4 flex-wrap mt-3">
+                    <div class="mentor-metric">
+                        <div class="mentor-metric-val">{{ m.test_score }}%</div>
+                        <div class="mentor-metric-label">Test Score</div>
+                    </div>
+                    <div class="mentor-metric">
+                        <div class="mentor-metric-val">{{ m.people_helped }}</div>
+                        <div class="mentor-metric-label">Students Helped</div>
+                    </div>
+                    <div class="mentor-metric">
+                        <div class="mentor-metric-val">{{ m.replan_count }}</div>
+                        <div class="mentor-metric-label">Roadmap Replans</div>
+                    </div>
+                    {% if m.avg_rating %}
+                    <div class="mentor-metric">
+                        <div class="mentor-metric-val">{{ m.avg_rating }}/5</div>
+                        <div class="mentor-metric-label">Avg Rating</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mt-3">
+                    {% if m.student_id in open_mentor_sessions %}
+                        <a href="/mentor/sessions/{{ open_mentor_sessions[m.student_id] }}?student_id={{ student.id }}" class="btn btn-sm btn-outline-primary">Continue Chat</a>
+                    {% else %}
+                        <form method="post" action="/mentor/sessions/start" class="d-inline">
+                            <input type="hidden" name="seeker_id" value="{{ student.id }}">
+                            <input type="hidden" name="mentor_id" value="{{ m.student_id }}">
+                            <input type="hidden" name="normalized_skill" value="{{ skill }}">
+                            <button type="submit" class="btn btn-sm btn-primary">Request Help</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="page-card p-5 text-center">
+            <p class="text-muted mb-1">No mentors are available for <strong>{{ skill_display }}</strong> yet.</p>
+            <p class="text-muted small mb-0">Once an eligible student opts in, they will appear here.</p>
+        </div>
+    {% endif %}
+
+    <div class="mt-4 text-center">
+        <a href="/mentor/hub?student_id={{ student.id }}" class="btn btn-sm btn-outline-secondary">View My Mentor Hub</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+﻿{% extends "base.html" %}
+{% block title %}Mentor Chat - {{ skill_display }} | CodeMap{% endblock %}
+{% block page_styles %}
+<link href="/static/css/mentor.css?v={{ asset_version }}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<div class="mentor-page">
+    <div class="page-card p-4 mb-4">
+        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+            <div>
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                    <h2 class="h4 mb-0">{{ skill_display }} Mentor Chat</h2>
+                    <span class="badge {% if session.status == 'open' %}text-bg-success{% elif session.status == 'closed' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">{{ session.status | title }}</span>
+                </div>
+                {% if is_seeker %}
+                    <p class="text-muted small mb-0">Chatting with mentor <strong>{{ session.mentor_name }}</strong></p>
+                {% else %}
+                    <p class="text-muted small mb-0">Helping <strong>{{ session.seeker_name }}</strong> with {{ skill_display }}</p>
+                {% endif %}
+            </div>
+            <a href="/mentor/hub?student_id={{ student.id }}" class="btn btn-sm btn-outline-secondary">Mentor Hub</a>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger mb-3">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+        <div class="alert alert-success mb-3">{{ success }}</div>
+    {% endif %}
+
+    <div class="page-card p-0 mb-4 mentor-chat-card">
+        <div class="mentor-chat-thread" id="mentorChatThread">
+            {% if session.messages %}
+                {% for msg in session.messages %}
+                <div class="mentor-bubble-row {% if msg.sender_id == student.id %}is-self{% else %}is-other{% endif %}">
+                    <div class="mentor-bubble">
+                        <div class="mentor-bubble-name small fw-semibold mb-1">{% if msg.sender_id == student.id %}You{% else %}{{ msg.sender_name }}{% endif %}</div>
+                        <div class="mentor-bubble-text">{{ msg.message_text | replace('\n', '<br>') | safe }}</div>
+                        <div class="mentor-bubble-time small text-muted mt-1">{{ msg.sent_at[:16] | replace("T", " ") }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted small text-center p-4 mb-0">
+                    No messages yet.
+                    {% if session.status == 'open' %}
+                        Start the conversation below.
+                    {% endif %}
+                </p>
+            {% endif %}
+        </div>
+
+        {% if session.status == 'open' %}
+        <div class="mentor-chat-input-wrap p-3 border-top">
+            <form method="post" action="/mentor/sessions/{{ session.id }}/message" class="d-flex gap-2 align-items-end">
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <textarea class="form-control form-control-sm mentor-chat-input" name="message_text" rows="2" maxlength="2000" placeholder="Type your message..." required></textarea>
+                <button type="submit" class="btn btn-primary btn-sm px-3">
+                    {% if is_seeker %}Send Question{% else %}Send Reply{% endif %}
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if session.status == 'open' and is_seeker %}
+    <div class="page-card p-4 mb-4">
+        <h5 class="h6 mb-2">Done getting help?</h5>
+        <p class="text-muted small mb-3">
+            Mark the session as resolved when your doubt is cleared.
+            You can leave a review once it is closed.
+        </p>
+        <div class="d-flex gap-2 flex-wrap">
+            <form method="post" action="/mentor/sessions/{{ session.id }}/close" class="d-inline">
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <button type="submit" class="btn btn-sm btn-success">Mark as Resolved</button>
+            </form>
+            <form method="post" action="/mentor/sessions/{{ session.id }}/cancel" class="d-inline">
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <input type="hidden" name="normalized_skill" value="{{ session.normalized_skill }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancel this help request?')">Cancel Request</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if session.status == 'closed' and is_seeker %}
+        {% if session.review %}
+        <div class="page-card p-4 mb-4">
+            <h5 class="h6 mb-2">Your Review</h5>
+            <div class="d-flex gap-1 mb-2">
+                {% for i in range(1, 6) %}
+                    <span class="mentor-star {% if i <= session.review.rating %}mentor-star-filled{% endif %}">&#9733;</span>
+                {% endfor %}
+                <span class="text-muted small ms-2">({{ session.review.rating }}/5)</span>
+            </div>
+            {% if session.review.review_text %}
+                <p class="text-muted small mb-0">{{ session.review.review_text }}</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="page-card p-4 mb-4">
+            <h5 class="h6 mb-2">Leave a Review</h5>
+            <p class="text-muted small mb-3">How helpful was <strong>{{ session.mentor_name }}</strong>?</p>
+            <form method="post" action="/mentor/sessions/{{ session.id }}/review">
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <div class="mb-3">
+                    <div class="mentor-star-rating d-flex gap-2">
+                        {% for i in range(1, 6) %}
+                        <label class="mentor-star-label">
+                            <input type="radio" name="rating" value="{{ i }}" required class="visually-hidden">
+                            <span class="mentor-star-btn">{{ i }}&#9733;</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <textarea class="form-control form-control-sm" name="review_text" rows="2" maxlength="500" placeholder="Optional: say something about your experience..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">Submit Review</button>
+            </form>
+        </div>
+        {% endif %}
+    {% endif %}
+
+    {% if session.status == 'closed' and not is_seeker %}
+        <div class="page-card p-4 mb-4">
+            <h5 class="h6 mb-2">Student Review</h5>
+            {% if session.review %}
+                <div class="d-flex gap-1 mb-2">
+                    {% for i in range(1, 6) %}
+                        <span class="mentor-star {% if i <= session.review.rating %}mentor-star-filled{% endif %}">&#9733;</span>
+                    {% endfor %}
+                    <span class="text-muted small ms-2">({{ session.review.rating }}/5)</span>
+                </div>
+                {% if session.review.review_text %}
+                    <p class="text-muted small mb-0">{{ session.review.review_text }}</p>
+                {% else %}
+                    <p class="text-muted small mb-0">No written feedback was provided.</p>
+                {% endif %}
+            {% else %}
+                <p class="text-muted small mb-0">The student has not submitted a review yet.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    (function () {
+        const thread = document.getElementById("mentorChatThread");
+        if (thread) thread.scrollTop = thread.scrollHeight;
+    })();
+</script>
+{% endblock %}

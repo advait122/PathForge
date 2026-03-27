@@ -39,6 +39,7 @@ ALLOWED_DASHBOARD_SECTIONS = {
     "tasks",
     "tests",
     "doubtbot",
+    "mentor",
     "opportunities",
 }
 ALLOWED_COMPANY_DASHBOARD_SECTIONS = {
@@ -754,6 +755,26 @@ def skill_test_page(request: Request, student_id: int, goal_skill_id: int) -> HT
     except ValueError:
         chatbot_context = None
 
+    mentor_prompt = None
+    if assessment.get("submitted_at") and assessment.get("passed") == 1:
+        from backend.mentor_module.services import mentor_service
+        from backend.roadmap_engine.services.skill_normalizer import normalize_skill
+        from backend.roadmap_engine.storage import goals_repo
+
+        goal_skill = goals_repo.get_goal_skill(int(assessment["goal_skill_id"]))
+        if goal_skill is not None:
+            normalized_skill = str(goal_skill.get("normalized_skill") or "").strip() or normalize_skill(
+                str(goal_skill.get("skill_name") or "")
+            )
+            opt_in_status = mentor_service.get_mentor_opt_in_status(student_id, normalized_skill)
+            mentor_prompt = {
+                "skill_name": str(goal_skill.get("skill_name") or normalized_skill),
+                "normalized_skill": normalized_skill,
+                "skill_display": display_skill(normalized_skill),
+                "eligible": bool(opt_in_status["eligible"]),
+                "opted_in": bool(opt_in_status["opted_in"]),
+            }
+
     return templates.TemplateResponse(
         "skill_test.html",
         {
@@ -766,6 +787,10 @@ def skill_test_page(request: Request, student_id: int, goal_skill_id: int) -> HT
             "test_duration_minutes": assessment_service.TEST_DURATION_MINUTES,
             "test_deadline_iso": assessment_service.assessment_deadline_iso(assessment),
             "chatbot_context": chatbot_context,
+            "mentor_prompt": mentor_prompt,
+            "mentor_opted_in": False,
+            "mentor_opted_out": False,
+            "opt_in_error": "",
             "active_section": "tests",
         },
     )
@@ -776,6 +801,9 @@ def skill_test_result_page(
     request: Request,
     student_id: int,
     assessment_id: int,
+    mentor_opted_in: int = 0,
+    mentor_opted_out: int = 0,
+    opt_in_error: str = "",
 ) -> HTMLResponse:
     student = _student_or_404(student_id)
     assessment = _assessment_for_student_or_404(student_id, assessment_id)
@@ -791,6 +819,26 @@ def skill_test_result_page(
     except ValueError:
         chatbot_context = None
 
+    mentor_prompt = None
+    if assessment.get("passed") == 1:
+        from backend.mentor_module.services import mentor_service
+        from backend.roadmap_engine.services.skill_normalizer import normalize_skill
+        from backend.roadmap_engine.storage import goals_repo
+
+        goal_skill = goals_repo.get_goal_skill(int(assessment["goal_skill_id"]))
+        if goal_skill is not None:
+            normalized_skill = str(goal_skill.get("normalized_skill") or "").strip() or normalize_skill(
+                str(goal_skill.get("skill_name") or "")
+            )
+            opt_in_status = mentor_service.get_mentor_opt_in_status(student_id, normalized_skill)
+            mentor_prompt = {
+                "skill_name": str(goal_skill.get("skill_name") or normalized_skill),
+                "normalized_skill": normalized_skill,
+                "skill_display": display_skill(normalized_skill),
+                "eligible": bool(opt_in_status["eligible"]),
+                "opted_in": bool(opt_in_status["opted_in"]),
+            }
+
     return templates.TemplateResponse(
         "skill_test.html",
         {
@@ -801,6 +849,10 @@ def skill_test_result_page(
             "show_results": True,
             "assessment_review": _assessment_review(assessment),
             "chatbot_context": chatbot_context,
+            "mentor_prompt": mentor_prompt,
+            "mentor_opted_in": bool(mentor_opted_in),
+            "mentor_opted_out": bool(mentor_opted_out),
+            "opt_in_error": opt_in_error,
             "active_section": "tests",
         },
     )

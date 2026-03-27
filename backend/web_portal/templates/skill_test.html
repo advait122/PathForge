@@ -32,6 +32,59 @@
             {% endif %}
         </div>
 
+        {% if assessment.passed == 1 and mentor_prompt and mentor_prompt.eligible %}
+            {% if opt_in_error %}
+                <div class="alert alert-danger mb-3">{{ opt_in_error }}</div>
+            {% endif %}
+            {% if mentor_opted_in %}
+                <div class="alert alert-success mb-3">
+                    Mentor mode enabled for <strong>{{ mentor_prompt.skill_display }}</strong>.
+                    You are now visible in the mentor list for this skill.
+                </div>
+            {% endif %}
+            {% if mentor_opted_out %}
+                <div class="alert alert-secondary mb-3">
+                    You opted out of mentoring for <strong>{{ mentor_prompt.skill_display }}</strong>.
+                    You can opt in again anytime from this page.
+                </div>
+            {% endif %}
+
+            <div class="alert alert-info mb-4">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <div class="fw-semibold">Help other students as a mentor?</div>
+                        <div class="small">
+                            You completed <strong>{{ mentor_prompt.skill_display }}</strong> with a passing score.
+                            Choose whether you want to accept mentor requests for this skill.
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if mentor_prompt.opted_in %}
+                            <form method="post" action="/mentor/opt-out" class="d-inline">
+                                <input type="hidden" name="student_id" value="{{ student.id }}">
+                                <input type="hidden" name="normalized_skill" value="{{ mentor_prompt.normalized_skill }}">
+                                <input type="hidden" name="assessment_id" value="{{ assessment.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Opt Out</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="/mentor/opt-in" class="d-inline">
+                                <input type="hidden" name="student_id" value="{{ student.id }}">
+                                <input type="hidden" name="normalized_skill" value="{{ mentor_prompt.normalized_skill }}">
+                                <input type="hidden" name="assessment_id" value="{{ assessment.id }}">
+                                <button type="submit" class="btn btn-sm btn-primary">Yes, Become a Mentor</button>
+                            </form>
+                            <form method="post" action="/mentor/opt-out" class="d-inline">
+                                <input type="hidden" name="student_id" value="{{ student.id }}">
+                                <input type="hidden" name="normalized_skill" value="{{ mentor_prompt.normalized_skill }}">
+                                <input type="hidden" name="assessment_id" value="{{ assessment.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">No, Not Now</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
         {% if assessment_review %}
             {% for item in assessment_review.questions %}
                 <div class="mb-4">

@@ -29,6 +29,7 @@
                     <a href="{{ dashboard_url }}?section=roadmap" class="ribbon-link {% if current_section == 'roadmap' %}active{% endif %}">Progress Dashboard</a>
                     <a href="{{ dashboard_url }}?section=tasks" class="ribbon-link {% if current_section == 'tasks' %}active{% endif %}">Tasks</a>
                     <a href="{{ dashboard_url }}?section=tests" class="ribbon-link {% if current_section == 'tests' %}active{% endif %}">Tests</a>
+                    <a href="/mentor/hub?student_id={{ student.id }}" class="ribbon-link {% if current_section == 'mentor' %}active{% endif %}">Mentor Hub</a>
                     {% if dashboard is defined %}
                     <div class="ribbon-playlist-dropdown" id="ribbonPlaylistDropdown">
                         <button
