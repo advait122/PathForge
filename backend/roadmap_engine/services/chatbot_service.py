@@ -88,42 +88,92 @@ def _structure_assistant_answer(answer: str) -> str:
     if not text:
         return ""
 
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-    if not lines:
+    raw_lines = [line.strip() for line in text.split("\n")]
+    if not any(raw_lines):
         return ""
 
-    bullet_pattern = re.compile(r"^([-*•]|\d+[.)])\s+")
-    has_bullets = any(bullet_pattern.match(line) for line in lines)
+    lines: list[str] = []
+    for line in raw_lines:
+        if line:
+            lines.append(line)
+            continue
+        if lines and lines[-1] != "":
+            lines.append("")
 
-    if has_bullets:
-        normalized: list[str] = []
-        for line in lines:
-            if bullet_pattern.match(line):
-                normalized.append("- " + bullet_pattern.sub("", line).strip())
-            else:
-                normalized.append(line)
-        return "\n".join(normalized)
+    while lines and lines[0] == "":
+        lines.pop(0)
+    while lines and lines[-1] == "":
+        lines.pop()
+    if not lines:
+        return ""
+    bullet_pattern = re.compile(r"^(?:[-*]|\u2022)\s+(.+)$")
+    numbered_pattern = re.compile(r"^\d+[.)]\s+(.+)$")
 
-    compact = " ".join(lines)
+    normalized: list[str] = []
+    list_index = 0
+    for line in lines:
+        if not line:
+            if normalized and normalized[-1] != "":
+                normalized.append("")
+            list_index = 0
+            continue
+
+        bullet_match = bullet_pattern.match(line)
+        numbered_match = numbered_pattern.match(line)
+        if bullet_match or numbered_match:
+            list_index += 1
+            content = bullet_match.group(1).strip() if bullet_match else numbered_match.group(1).strip()
+            normalized.append(f"{list_index}. {content}")
+            continue
+
+        list_index = 0
+        normalized.append(line)
+
+    structured_pattern = re.compile(
+        r"^(#{1,3}\s+|Title\s*:|Explanation\s*:|Overview\s*:|Key Points?\s*:|Example[s]?\s*:|Quick Recap\s*:|What You Can Ask Next\s*:)",
+        re.IGNORECASE,
+    )
+    has_structure = any(structured_pattern.match(line) for line in normalized if line)
+    has_numbered_list = any(numbered_pattern.match(line) for line in normalized if line)
+    if has_structure or has_numbered_list:
+        return "\n".join(normalized).strip()
+
+    compact = " ".join(line for line in normalized if line)
+    if not compact:
+        return ""
 
     sentence_parts = [
         part.strip()
         for part in re.split(r"(?<=[.!?])\s+", compact)
         if part.strip()
     ]
-    if len(sentence_parts) >= 2:
-        return "\n".join(f"- {part}" for part in sentence_parts)
+    if not sentence_parts:
+        return compact
 
-    clause_parts = [
-        part.strip()
-        for part in re.split(r"[;]\s*", compact)
-        if part.strip()
+    title_source = sentence_parts[0].rstrip(".")
+    title_words = title_source.split()
+    title = " ".join(title_words[:8]) if title_words else "Quick Answer"
+
+    intro = " ".join(sentence_parts[:2]).strip()
+    key_points = sentence_parts[2:5]
+    if not key_points and len(sentence_parts) > 1:
+        key_points = sentence_parts[1:3]
+    if not key_points:
+        key_points = [sentence_parts[0]]
+
+    structured_lines = [
+        f"Title: {title}",
+        f"Explanation: {intro}",
+        "Key Points:",
     ]
-    if len(clause_parts) >= 2:
-        return "\n".join(f"- {part}" for part in clause_parts)
+    structured_lines.extend(
+        f"{idx}. {point}" for idx, point in enumerate(key_points, start=1)
+    )
 
-    return compact
+    if len(sentence_parts) >= 4:
+        structured_lines.append(f"Example: {sentence_parts[3]}")
 
+    return "\n".join(structured_lines).strip()
 
 def get_chat_panel(student_id: int, limit: int = 20) -> dict:
     context = _active_chat_context(student_id)

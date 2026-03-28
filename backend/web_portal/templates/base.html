@@ -207,7 +207,20 @@
                         <p class="doubtbot-panel-subtitle mb-0">Playlist chat assistant</p>
                     {% endif %}
                 </div>
-                <button type="button" class="btn-close" aria-label="Close" id="doubtbotPanelClose"></button>
+                <div class="doubtbot-panel-actions">
+                    {% if chat_ctx.enabled %}
+                        <button
+                            type="button"
+                            class="doubtbot-panel-toggle-size"
+                            id="doubtbotPanelToggleSize"
+                            aria-label="Maximize chat window"
+                            title="Maximize"
+                        >
+                            <span class="doubtbot-panel-toggle-size-icon" aria-hidden="true"></span>
+                        </button>
+                    {% endif %}
+                    <button type="button" class="btn-close" aria-label="Close" id="doubtbotPanelClose"></button>
+                </div>
             </header>
 
             {% if chat_ctx.enabled %}
@@ -216,7 +229,7 @@
                         {% for item in chat_ctx.messages %}
                             <div class="doubtbot-bubble-row {% if item.role == 'user' %}is-user{% else %}is-assistant{% endif %}">
                                 <div class="doubtbot-bubble">
-                                    <div class="doubtbot-bubble-text">{{ item.message_text | replace('\n', '<br>') | safe }}</div>
+                                    <div class="doubtbot-bubble-text">{{ item.message_text | e }}</div>
                                 </div>
                             </div>
                         {% endfor %}
@@ -413,8 +426,7 @@
                 lines.forEach((line) => {
                     const paragraph = document.createElement("p");
                     paragraph.className = "summary-line";
-
-                    const bulletMatch = line.match(/^-+\s*(.+)$/);
+                    const bulletMatch = line.match(/^(?:[-*]|\u2022)\s+(.+)$/);
                     const normalized = bulletMatch ? bulletMatch[1].trim() : line;
                     if (bulletMatch) paragraph.classList.add("summary-line-bullet");
 
@@ -498,15 +510,130 @@
             const launcher = document.getElementById("doubtbotLauncher");
             const panel = document.getElementById("doubtbotPanel");
             const closeBtn = document.getElementById("doubtbotPanelClose");
+            const toggleSizeBtn = document.getElementById("doubtbotPanelToggleSize");
             const thread = document.getElementById("doubtbotThread");
             const input = document.getElementById("doubtbotQuestionInput");
             const form = widget?.querySelector(".doubtbot-input-wrap");
 
             if (!widget || !launcher || !panel) return;
+            let isFullscreen = false;
+            let isClosing = false;
+
+            function escapeHtml(text) {
+                return String(text || "")
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/\"/g, "&quot;")
+                    .replace(/'/g, "&#39;");
+            }
+
+            function formatInline(text) {
+                let value = escapeHtml(text);
+                value = value.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+                value = value.replace(/`([^`]+)`/g, "<code>$1</code>");
+                return value;
+            }
+
+            function formatAssistantText(rawText) {
+                const lines = String(rawText || "").replace(/\r/g, "").split("\n");
+                const htmlParts = [];
+                let listTag = "";
+
+                function closeList() {
+                    if (!listTag) return;
+                    htmlParts.push(`</${listTag}>`);
+                    listTag = "";
+                }
+
+                for (const rawLine of lines) {
+                    const line = rawLine.trim();
+                    if (!line) {
+                        closeList();
+                        continue;
+                    }
+
+                    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+                    if (headingMatch) {
+                        closeList();
+                        htmlParts.push(`<h6 class="doubtbot-rich-heading">${formatInline(headingMatch[2])}</h6>`);
+                        continue;
+                    }
+
+                    const sectionMatch = line.match(/^(Title|Overview|Explanation|Key Points?|Example|Examples|Quick Recap|Next Steps?)\s*:\s*(.*)$/i);
+                    if (sectionMatch) {
+                        closeList();
+                        htmlParts.push(`<h6 class="doubtbot-rich-heading">${formatInline(sectionMatch[1])}</h6>`);
+                        if (sectionMatch[2]) {
+                            htmlParts.push(`<p class="doubtbot-rich-paragraph">${formatInline(sectionMatch[2])}</p>`);
+                        }
+                        continue;
+                    }
+
+                    const numberedMatch = line.match(/^\d+[.)]\s+(.+)$/);
+                    if (numberedMatch) {
+                        if (listTag !== "ol") {
+                            closeList();
+                            listTag = "ol";
+                            htmlParts.push('<ol class="doubtbot-rich-list">');
+                        }
+                        htmlParts.push(`<li>${formatInline(numberedMatch[1])}</li>`);
+                        continue;
+                    }
+                    const bulletMatch = line.match(/^(?:[-*]|\u2022)\s+(.+)$/);
+                    if (bulletMatch) {
+                        if (listTag !== "ul") {
+                            closeList();
+                            listTag = "ul";
+                            htmlParts.push('<ul class="doubtbot-rich-list">');
+                        }
+                        htmlParts.push(`<li>${formatInline(bulletMatch[1])}</li>`);
+                        continue;
+                    }
+
+                    closeList();
+                    htmlParts.push(`<p class="doubtbot-rich-paragraph">${formatInline(line)}</p>`);
+                }
+
+                closeList();
+                return htmlParts.length ? htmlParts.join("") : `<p class="doubtbot-rich-paragraph">${formatInline(rawText)}</p>`;
+            }
+
+            function formatAssistantBubbles() {
+                panel.querySelectorAll(".doubtbot-bubble-row.is-assistant .doubtbot-bubble-text").forEach((node) => {
+                    if (!(node instanceof HTMLElement) || node.dataset.formatted === "1") return;
+                    node.innerHTML = formatAssistantText(node.textContent || "");
+                    node.dataset.formatted = "1";
+                });
+            }
 
             function scrollThreadToBottom() {
                 if (!thread) return;
                 thread.scrollTop = thread.scrollHeight;
+            }
+
+            function syncFullscreenUi() {
+                widget.classList.toggle("fullscreen", isFullscreen);
+                panel.classList.toggle("is-fullscreen", isFullscreen);
+                panel.setAttribute("aria-modal", isFullscreen ? "true" : "false");
+                document.body.classList.toggle("doubtbot-fullscreen-open", isFullscreen && !panel.hidden);
+
+                if (toggleSizeBtn) {
+                    toggleSizeBtn.classList.toggle("is-restoring", isFullscreen);
+                    toggleSizeBtn.setAttribute("aria-label", isFullscreen ? "Restore chat window" : "Maximize chat window");
+                    toggleSizeBtn.setAttribute("title", isFullscreen ? "Restore" : "Maximize");
+                }
+            }
+
+            function setFullscreen(nextState, persistState = true) {
+                isFullscreen = Boolean(nextState);
+                syncFullscreenUi();
+                if (!persistState) return;
+                if (isFullscreen) {
+                    window.sessionStorage.setItem("doubtbotMode", "fullscreen");
+                } else {
+                    window.sessionStorage.removeItem("doubtbotMode");
+                }
             }
 
             function openPanel() {
@@ -514,27 +641,43 @@
                     return;
                 }
                 panel.hidden = false;
+                isClosing = false;
                 panel.classList.remove("closing");
+                panel.classList.remove("closing-fullscreen");
                 void panel.offsetWidth;
                 panel.classList.add("is-visible");
                 widget.classList.add("open");
                 launcher.setAttribute("aria-expanded", "true");
+                formatAssistantBubbles();
+                syncFullscreenUi();
                 scrollThreadToBottom();
                 window.setTimeout(() => input?.focus(), 120);
             }
 
             function closePanel() {
                 if (panel.hidden || panel.classList.contains("closing")) return;
+                isClosing = true;
                 panel.classList.remove("is-visible");
                 panel.classList.add("closing");
+                panel.classList.toggle("closing-fullscreen", isFullscreen);
                 widget.classList.remove("open");
                 launcher.setAttribute("aria-expanded", "false");
+                document.body.classList.remove("doubtbot-fullscreen-open");
+                window.sessionStorage.removeItem("keepDoubtbotOpen");
+                window.sessionStorage.removeItem("doubtbotMode");
+                setFullscreen(false, false);
                 panel.addEventListener(
                     "animationend",
                     (event) => {
-                        if (event.animationName !== "doubtbot-panel-close") return;
+                        const validAnimationNames = new Set([
+                            "doubtbot-panel-close",
+                            "doubtbot-panel-close-fullscreen",
+                        ]);
+                        if (!validAnimationNames.has(event.animationName)) return;
                         panel.hidden = true;
                         panel.classList.remove("closing");
+                        panel.classList.remove("closing-fullscreen");
+                        isClosing = false;
                     },
                     { once: true },
                 );
@@ -555,19 +698,37 @@
 
             form?.addEventListener("submit", () => {
                 window.sessionStorage.setItem("keepDoubtbotOpen", "1");
+                if (isFullscreen) {
+                    window.sessionStorage.setItem("doubtbotMode", "fullscreen");
+                } else {
+                    window.sessionStorage.removeItem("doubtbotMode");
+                }
             });
 
             closeBtn?.addEventListener("click", closePanel);
+            toggleSizeBtn?.addEventListener("click", () => {
+                if (panel.hidden || isClosing) return;
+                setFullscreen(!isFullscreen, true);
+                scrollThreadToBottom();
+                window.setTimeout(() => input?.focus(), 40);
+            });
             document.addEventListener("click", closePanel);
             document.addEventListener("keydown", (event) => {
                 if (event.key === "Escape" && !panel.hidden) closePanel();
             });
 
             const keepOpen = window.sessionStorage.getItem("keepDoubtbotOpen") === "1";
+            const mode = window.sessionStorage.getItem("doubtbotMode");
+            if (keepOpen && mode === "fullscreen") {
+                setFullscreen(true, false);
+            } else if (!keepOpen && mode === "fullscreen") {
+                window.sessionStorage.removeItem("doubtbotMode");
+            }
             if (keepOpen || window.location.hash === "#doubtbot-widget") {
                 openPanel();
                 window.sessionStorage.removeItem("keepDoubtbotOpen");
             }
+            formatAssistantBubbles();
         })();
 
     </script>

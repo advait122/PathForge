@@ -517,6 +517,9 @@ body.summary-modal-open {
 .doubtbot-panel.is-visible {
     animation: doubtbot-panel-open 0.34s cubic-bezier(0.18, 0.86, 0.26, 1) both;
     pointer-events: auto;
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
 }
 
 .doubtbot-panel.closing {
@@ -545,6 +548,45 @@ body.summary-modal-open {
     font-size: 0.72rem;
     color: rgba(29, 29, 31, 0.66);
     line-height: 1.2;
+}
+
+.doubtbot-panel-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.36rem;
+}
+
+.doubtbot-panel-toggle-size {
+    width: 1.7rem;
+    height: 1.7rem;
+    border: 1px solid rgba(16, 42, 66, 0.24);
+    border-radius: 6px;
+    background: #fff;
+    color: rgba(16, 42, 66, 0.85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.doubtbot-panel-toggle-size:hover,
+.doubtbot-panel-toggle-size:focus {
+    border-color: rgba(16, 42, 66, 0.38);
+    background: rgba(16, 42, 66, 0.06);
+}
+
+.doubtbot-panel-toggle-size-icon {
+    width: 0.62rem;
+    height: 0.62rem;
+    border: 2px solid currentColor;
+    display: block;
+}
+
+.doubtbot-panel-toggle-size.is-restoring .doubtbot-panel-toggle-size-icon {
+    width: 0.66rem;
+    height: 0.66rem;
+    border-width: 1px;
+    box-shadow: -3px 3px 0 0 currentColor;
 }
 
 .doubtbot-panel-header .btn-close {
@@ -638,6 +680,48 @@ body.summary-modal-open {
     line-height: 1.38;
     word-break: break-word;
     white-space: normal;
+}
+
+.doubtbot-rich-heading {
+    margin: 0 0 0.28rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #16212b;
+    line-height: 1.25;
+}
+
+.doubtbot-rich-paragraph {
+    margin: 0 0 0.38rem;
+    line-height: 1.48;
+}
+
+.doubtbot-rich-paragraph:last-child {
+    margin-bottom: 0;
+}
+
+.doubtbot-rich-list {
+    margin: 0 0 0.38rem;
+    padding-left: 1rem;
+}
+
+.doubtbot-rich-list:last-child {
+    margin-bottom: 0;
+}
+
+.doubtbot-rich-list li {
+    margin-bottom: 0.2rem;
+}
+
+.doubtbot-rich-list li:last-child {
+    margin-bottom: 0;
+}
+
+.doubtbot-bubble-text code {
+    font-size: 0.79em;
+    color: #0f1724;
+    background: rgba(16, 42, 66, 0.12);
+    padding: 0.08rem 0.28rem;
+    border-radius: 5px;
 }
 
 .doubtbot-input-wrap {
@@ -746,6 +830,81 @@ body.summary-modal-open {
     }
 }
 
+.doubtbot-panel.is-visible.is-fullscreen {
+    animation: doubtbot-panel-open-fullscreen 0.22s ease both;
+}
+
+.doubtbot-panel.closing.closing-fullscreen {
+    animation: doubtbot-panel-close-fullscreen 0.16s ease both;
+}
+
+.doubtbot-panel.is-fullscreen {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    transform-origin: center;
+}
+
+.doubtbot-panel.is-fullscreen .doubtbot-panel-header {
+    padding: 0.84rem 1rem;
+}
+
+.doubtbot-panel.is-fullscreen .doubtbot-thread {
+    height: calc(100vh - 152px - env(safe-area-inset-bottom));
+    padding: 1rem;
+}
+
+.doubtbot-panel.is-fullscreen .doubtbot-bubble {
+    max-width: min(840px, 84vw);
+    font-size: 0.9rem;
+}
+
+.doubtbot-panel.is-fullscreen .doubtbot-input-wrap {
+    padding: 0.8rem 1rem calc(0.88rem + env(safe-area-inset-bottom));
+}
+
+.doubtbot-panel.is-fullscreen .doubtbot-input {
+    font-size: 0.9rem;
+    min-height: 44px;
+}
+
+body.doubtbot-fullscreen-open {
+    overflow: hidden;
+}
+
+@keyframes doubtbot-panel-open-fullscreen {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+        filter: blur(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
+    }
+}
+
+@keyframes doubtbot-panel-close-fullscreen {
+    from {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(0.985);
+        filter: blur(5px);
+    }
+}
+
 @media (max-width: 767px) {
     .doubtbot-widget {
         --doubtbot-launcher-size: 62px;
@@ -756,6 +915,10 @@ body.summary-modal-open {
 
     .doubtbot-panel {
         width: min(344px, calc(100vw - 1rem));
+    }
+
+    .doubtbot-panel.is-fullscreen .doubtbot-bubble {
+        max-width: 92vw;
     }
 }
 
