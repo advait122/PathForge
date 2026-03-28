@@ -42,7 +42,7 @@ def _filter_values(values: list[str], query: str, limit: int) -> list[str]:
 
 
 def _download_catalog_payload() -> list[dict]:
-    request = Request(_LOCATION_SOURCE_URL, headers={"User-Agent": "CodeMap/1.0"})
+    request = Request(_LOCATION_SOURCE_URL, headers={"User-Agent": "PathForge/1.0"})
     with urlopen(request, timeout=_DOWNLOAD_TIMEOUT_SECONDS) as response:
         raw_bytes = response.read()
     decoded = raw_bytes.decode("utf-8")

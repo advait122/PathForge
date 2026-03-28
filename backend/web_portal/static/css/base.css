@@ -21,11 +21,11 @@
     --accent: var(--autumn-2);
     --accent-dark: var(--autumn-1);
     --accent-soft: rgba(231, 119, 23, 0.16);
-    --codemap-wordmark-font: "Trebuchet MS", "Segoe UI", sans-serif;
+    --pathforge-wordmark-font: "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
-.codemap-wordmark {
-    font-family: var(--codemap-wordmark-font);
+.pathforge-wordmark {
+    font-family: var(--pathforge-wordmark-font);
     font-weight: 800;
     letter-spacing: 0.01em;
 }
@@ -80,9 +80,9 @@ nav.navbar .container {
 }
 
 nav.navbar .navbar-brand {
-    font-size: 1.55rem;
+    font-size: 1.7rem;
     font-weight: 800 !important;
-    font-family: var(--codemap-wordmark-font);
+    font-family: var(--pathforge-wordmark-font);
     letter-spacing: 0.01em;
     margin-right: 0;
     justify-self: start;
@@ -1050,6 +1050,10 @@ body.summary-modal-open {
 }
 
 @media (max-width: 991px) {
+    nav.navbar .navbar-brand {
+        font-size: 1.62rem;
+    }
+
     nav.navbar .container {
         padding-left: 1rem;
         padding-right: 1rem;

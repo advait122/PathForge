@@ -1,5 +1,5 @@
-﻿{% extends "base.html" %}
-{% block title %}Find a Mentor - {{ skill_display }} | CodeMap{% endblock %}
+{% extends "base.html" %}
+{% block title %}Find a Mentor - {{ skill_display }} | PathForge{% endblock %}
 {% block page_styles %}
 <link href="/static/css/mentor.css?v={{ asset_version }}" rel="stylesheet">
 {% endblock %}
@@ -10,7 +10,7 @@
             <div>
                 <h2 class="h4 mb-1">Mentors for <span class="text-primary">{{ skill_display }}</span></h2>
                 <p class="text-muted small mb-0">
-                    Students who completed this skill through CodeMap and opted in to mentor.
+                    Students who completed this skill through PathForge and opted in to mentor.
                 </p>
             </div>
             <a href="/students/{{ student.id }}/dashboard?section=roadmap" class="btn btn-sm btn-outline-secondary">Back to Dashboard</a>
