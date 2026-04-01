@@ -14,7 +14,7 @@ from backend.roadmap_engine.storage import goals_repo, playlist_repo, students_r
 
 router = APIRouter(prefix="/mentor", tags=["mentor"])
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "web_portal" / "templates"
+TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 

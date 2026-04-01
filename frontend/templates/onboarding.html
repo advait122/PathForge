@@ -1,0 +1,299 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding</title>
+    <link rel="stylesheet" href="/static/css/onboarding.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<header class="ribbon onboarding-ribbon">
+    <span class="ribbon-title">PathForge</span>
+</header>
+<main>
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if auth_mode == "login" %}
+    <div class="login-layout">
+        <section class="auth-card login-card student-login-card">
+            <h2>Student Login</h2>
+            <form class="login-form" method="post" action="/student/login">
+                <input id="login-name" name="name" type="text" placeholder="Name" required>
+
+                <input id="login-password" name="password" type="password" placeholder="Password" required>
+
+                <button type="submit">Login</button>
+            </form>
+            <p class="alt-text">
+                No student account? <a class="text-link" href="/onboarding?mode=signup">
+                    signup</a>
+            </p>
+        </section>
+
+        <aside class="company-card-panel">
+            <div class="company-image-card">
+                <img src="/static/images/for_companies.png?v={{ asset_version|default('1') }}" alt="For companies">
+                <a class="company-image-button" href="/company/auth">login as comapny</a>
+            </div>
+            <p class="blur-text company-question" aria-label="are you a company?">
+                <span style="--delay: 0ms;">Are</span>
+                <span style="--delay: 200ms;">you</span>
+                <span style="--delay: 400ms;">a</span>
+                <span style="--delay: 600ms;">company?</span>
+            </p>
+        </aside>
+    </div>
+    {% else %}
+    <div class="signup-layout">
+        <aside class="signup-left-reveal-panel" aria-hidden="true">
+            <div class="signup-left-reveal-card">
+                <img src="/static/images/student_signup.png?v={{ asset_version|default('1') }}" alt="Student signup">
+            </div>
+        </aside>
+
+        <section class="auth-card signup-card">
+            <h2>Student Signup</h2>
+            <form class="signup-multistep-form" method="post" action="/onboarding">
+                <div class="signup-step is-active" data-step="1">
+                    <input id="signup-name" name="name" type="text" placeholder="Name" required>
+
+                    <input id="signup-password" name="password" type="password" placeholder="Password" required>
+
+                    <input id="signup-confirm-password" name="confirm_password" type="password" placeholder="Confirm Password" required>
+
+                    <div class="signup-actions">
+                        <button class="signup-next" type="button">Next</button>
+                    </div>
+                </div>
+
+                <div class="signup-step" data-step="2">
+                    <textarea id="goal-text" name="goal_text" placeholder="Goal (eg: google, microsoft..)" required></textarea>
+
+                    <select id="branch" name="branch" required>
+                        <option value="" selected disabled hidden>Branch</option>
+                        {% for branch in branch_options %}
+                        <option value="{{ branch }}">{{ branch }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <select id="current-year" name="current_year" required>
+                        <option value="" selected disabled hidden>Current Year</option>
+                        {% for year in year_options %}
+                        <option value="{{ year }}">{{ year }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <input id="cgpa" name="cgpa" type="number" step="0.01" min="0" max="10" placeholder="CGPA" required>
+
+                    <select id="active-backlog" name="active_backlog" required>
+                        <option value="" selected disabled hidden>Active Backlog</option>
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                    </select>
+
+                    <div class="signup-actions two-buttons">
+                        <button class="signup-prev" type="button">Previous</button>
+                        <button class="signup-next" type="button">Next</button>
+                    </div>
+                </div>
+
+                <div class="signup-step" data-step="3">
+                    <label>Select Skills</label>
+                    <div class="grid skills-scroll-grid">
+                        {% for skill in predefined_skills %}
+                        <label class="check-row">
+                            <input type="checkbox" name="selected_skills" value="{{ skill }}">{{ skill }}
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <input id="custom-skills" name="custom_skills" type="text" placeholder="Custom Skills (comma separated)">
+
+                    <div class="weekly-hours-inline">
+                        <span class="weekly-hours-label">Weekly hours:</span>
+                        <input id="weekly-hours" class="weekly-hours-number" name="weekly_study_hours" type="number" min="1" value="{{ default_weekly_hours|default(10) }}" required>
+                    </div>
+
+                    <select id="target-duration" name="target_duration_months" required>
+                        <option value="" selected disabled hidden>Target Duration (months)</option>
+                        {% for months in timeline_options %}
+                        <option value="{{ months }}">{{ months }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="signup-actions two-buttons">
+                        <button class="signup-prev" type="button">Previous</button>
+                        <button type="submit">Create Student Account</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <aside class="signup-side-panel">
+            <div class="signup-side-card">
+                <img src="/static/images/company_signup.png?v={{ asset_version|default('1') }}" alt="Company signup">
+                <a class="signup-company-image-button" href="/company/signup">sign in as a company</a>
+            </div>
+        </aside>
+    </div>
+
+    {% endif %}
+</main>
+<script>
+    (function () {
+        const blurText = document.querySelector(".blur-text");
+        if (blurText) {
+            blurText.addEventListener("mouseenter", function () {
+                blurText.classList.remove("is-replaying");
+                void blurText.offsetWidth;
+                blurText.classList.add("is-replaying");
+            });
+        }
+
+        const signupForm = document.querySelector(".signup-multistep-form");
+        if (!signupForm) {
+            return;
+        }
+
+        const signupLayout = document.querySelector(".signup-layout");
+        const steps = Array.from(signupForm.querySelectorAll(".signup-step"));
+        const nextButtons = Array.from(signupForm.querySelectorAll(".signup-next"));
+        const prevButtons = Array.from(signupForm.querySelectorAll(".signup-prev"));
+        const passwordInput = signupForm.querySelector("#signup-password");
+        const confirmInput = signupForm.querySelector("#signup-confirm-password");
+        let currentStep = 0;
+        let isStepAnimating = false;
+        const signupStepStorageKey = "pathforge_signup_step";
+        const navEntry = performance.getEntriesByType("navigation")[0];
+        const navType = navEntry && navEntry.type
+            ? navEntry.type
+            : (performance.navigation && performance.navigation.type === 1 ? "reload" : "navigate");
+        const isReload = navType === "reload";
+
+        const showStep = function (stepIndex, options) {
+            const transitionOptions = options || {};
+            const shouldAnimate = Boolean(transitionOptions.animate);
+            const direction = transitionOptions.direction || "forward";
+
+            steps.forEach(function (step, index) {
+                const isActive = index === stepIndex;
+                step.classList.toggle("is-active", isActive);
+                step.hidden = !isActive;
+
+                if (isActive && shouldAnimate) {
+                    step.classList.remove("step-enter-forward", "step-enter-backward");
+                    void step.offsetWidth;
+                    step.classList.add(direction === "backward" ? "step-enter-backward" : "step-enter-forward");
+                    step.addEventListener("animationend", function handleAnimationEnd() {
+                        step.classList.remove("step-enter-forward", "step-enter-backward");
+                        isStepAnimating = false;
+                    }, { once: true });
+                } else if (isActive) {
+                    step.classList.remove("step-enter-forward", "step-enter-backward");
+                }
+            });
+            currentStep = stepIndex;
+
+            if (signupLayout) {
+                signupLayout.classList.toggle("is-details-stage", stepIndex > 0);
+            }
+
+            try {
+                sessionStorage.setItem(signupStepStorageKey, String(stepIndex));
+            } catch (error) {
+                // Ignore storage failures and continue normal flow.
+            }
+        };
+
+        const validateCurrentStep = function () {
+            const activeStep = steps[currentStep];
+            const requiredFields = activeStep.querySelectorAll("input[required], select[required], textarea[required]");
+
+            for (const field of requiredFields) {
+                if (!field.checkValidity()) {
+                    field.reportValidity();
+                    return false;
+                }
+            }
+
+            if (currentStep === 0 && passwordInput && confirmInput) {
+                if (passwordInput.value !== confirmInput.value) {
+                    confirmInput.setCustomValidity("Passwords do not match.");
+                    confirmInput.reportValidity();
+                    return false;
+                }
+                confirmInput.setCustomValidity("");
+            }
+
+            return true;
+        };
+
+        if (confirmInput) {
+            confirmInput.addEventListener("input", function () {
+                confirmInput.setCustomValidity("");
+            });
+        }
+
+        nextButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                if (isStepAnimating) {
+                    return;
+                }
+
+                if (!validateCurrentStep()) {
+                    return;
+                }
+
+                const nextStep = Math.min(currentStep + 1, steps.length - 1);
+                if (nextStep !== currentStep) {
+                    isStepAnimating = true;
+                }
+                showStep(nextStep, { animate: nextStep !== currentStep, direction: "forward" });
+            });
+        });
+
+        prevButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                if (isStepAnimating) {
+                    return;
+                }
+
+                const prevStep = Math.max(currentStep - 1, 0);
+                if (prevStep !== currentStep) {
+                    isStepAnimating = true;
+                }
+                showStep(prevStep, { animate: prevStep !== currentStep, direction: "backward" });
+            });
+        });
+
+        signupForm.addEventListener("submit", function (event) {
+            if (!validateCurrentStep()) {
+                event.preventDefault();
+            }
+        });
+
+        let initialStep = 0;
+        if (isReload) {
+            try {
+                const savedStep = Number.parseInt(sessionStorage.getItem(signupStepStorageKey) || "", 10);
+                if (Number.isInteger(savedStep) && savedStep >= 0 && savedStep < steps.length) {
+                    initialStep = savedStep;
+                }
+            } catch (error) {
+                // Keep default first step when storage is unavailable.
+            }
+        } else {
+            try {
+                sessionStorage.removeItem(signupStepStorageKey);
+            } catch (error) {
+                // Ignore storage cleanup failures.
+            }
+        }
+
+        showStep(initialStep, { animate: false });
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Dashboard</title>
+    <link rel="stylesheet" href="/static/css/company_dashboard.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set data = company_dashboard or {} %}
+    {% set active_job = data.get('active_job') if data else None %}
+    {% set active_job_id = active_job.get('id') if active_job else None %}
+
+    <h1>Company Dashboard</h1>
+    <p>Logged in as {{ company.get('username', 'Company') }}.</p>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <section>
+        <h2>Quick Actions</h2>
+        <a class="button-link" href="/company/job/create/step1">Create New Job</a>
+        {% if active_job_id %}
+        <a class="button-link secondary" href="/company/dashboard?job_id={{ active_job_id }}&section=dashboard">Dashboard</a>
+        <a class="button-link secondary" href="/company/dashboard?job_id={{ active_job_id }}&section=eligible">Eligible</a>
+        <a class="button-link secondary" href="/company/dashboard?job_id={{ active_job_id }}&section=applied">Applied</a>
+        {% endif %}
+        <form method="post" action="/company/logout">
+            <button type="submit">Logout</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Jobs</h2>
+        <ul>
+            {% for job in data.get('jobs', []) %}
+            <li>
+                <a class="button-link secondary" href="/company/dashboard?job_id={{ job.get('id') }}&top={{ data.get('top_filter', 20) }}">
+                    {{ job.get('job_title', 'Job') }} (ID: {{ job.get('id') }})
+                </a>
+            </li>
+            {% else %}
+            <li>No jobs found.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    {% if active_job %}
+    <section>
+        <h2>Active Job</h2>
+        <p><strong>ID:</strong> {{ active_job.get('id') }}</p>
+        <p><strong>Description:</strong> {{ active_job.get('job_description', '') }}</p>
+        <p><strong>Min CGPA:</strong> {{ active_job.get('min_cgpa', '-') }}</p>
+        <p><strong>Required Skills:</strong></p>
+        <ul>
+            {% for skill in active_job.get('required_skill_labels', []) %}
+            <li>{{ skill }}</li>
+            {% else %}
+            <li>No required skills listed.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Eligible Candidates (Top {{ data.get('top_filter', 20) }})</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Student</th>
+                <th>Final Score</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for candidate in data.get('top_candidates', []) %}
+            <tr>
+                <td>{{ candidate.get('student_name') or candidate.get('name') or ('Student ' ~ candidate.get('student_id', '-')) }}</td>
+                <td>{{ candidate.get('final_score', '-') }}</td>
+                <td>{{ candidate.get('application_status', '-') }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3">No candidates available.</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>Applied Candidates</h2>
+        <form method="post" action="/company/jobs/{{ active_job_id }}/shortlist?top={{ data.get('top_filter', 20) }}&section=applied">
+            <table>
+                <thead>
+                <tr>
+                    <th>Select</th>
+                    <th>Student</th>
+                    <th>Final Score</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for candidate in data.get('applied_candidates', []) %}
+                <tr>
+                    <td>
+                        <input type="checkbox" name="selected_student_ids" value="{{ candidate.get('student_id') }}">
+                    </td>
+                    <td>{{ candidate.get('student_name') or candidate.get('name') or ('Student ' ~ candidate.get('student_id', '-')) }}</td>
+                    <td>{{ candidate.get('final_score', '-') }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3">No applied candidates.</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit">Shortlist Selected</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Shortlisted Students</h2>
+        <ul>
+            {% for student_row in data.get('selected_students', []) %}
+            <li>
+                {{ student_row.get('student_name') or ('Student ' ~ student_row.get('student_id', '-')) }}
+                | Final Score: {{ student_row.get('final_score', '-') }}
+            </li>
+            {% else %}
+            <li>No shortlisted students yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+</main>
+</body>
+</html>

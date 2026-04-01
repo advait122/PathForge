@@ -1,0 +1,115 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Test</title>
+    <link rel="stylesheet" href="/static/css/skill_test.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set sid = student.get('id', 0) %}
+    {% set assessment_id = assessment.get('id') if assessment else None %}
+    {% set goal_skill_id = assessment.get('goal_skill_id') if assessment else None %}
+
+    <h1>Skill Test</h1>
+
+    {% if opt_in_error %}
+    <p class="error">{{ opt_in_error }}</p>
+    {% endif %}
+
+    {% if mentor_opted_in %}
+    <p class="success">Mentor opt-in submitted.</p>
+    {% endif %}
+
+    {% if mentor_opted_out %}
+    <p class="notice">Mentor opt-out submitted.</p>
+    {% endif %}
+
+    {% if assessment %}
+    <section>
+        <h2>Assessment Info</h2>
+        <p><strong>Skill:</strong> {{ assessment.get('skill_name', '-') }}</p>
+        <p><strong>Duration:</strong> {{ test_duration_minutes|default('-') }} minutes</p>
+        <p><strong>Deadline:</strong> {{ test_deadline_iso|default('-') }}</p>
+    </section>
+
+    {% if not show_results %}
+    <section>
+        <h2>Questions</h2>
+        <form method="post" action="/students/{{ sid }}/skills/tests/{{ assessment_id }}/submit">
+            {% for question in assessment.get('questions', []) %}
+            <div class="question-block">
+                <p><strong>Q{{ loop.index }}:</strong> {{ question.get('question', '') }}</p>
+                {% for option in question.get('options', []) %}
+                <label class="check-row">
+                    <input type="radio" name="answer_{{ loop.parent.index0 }}" value="{{ loop.index0 }}">{{ option }}
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>No questions available.</p>
+            {% endfor %}
+            <button type="submit">Submit Test</button>
+        </form>
+    </section>
+    {% else %}
+    <section>
+        <h2>Result</h2>
+        <p><strong>Score:</strong> {{ assessment.get('score_percent', '-') }}</p>
+        <p><strong>Status:</strong> {{ 'Passed' if assessment.get('passed') == 1 else 'Failed' }}</p>
+
+        {% if assessment_review %}
+        <p><strong>Correct:</strong> {{ assessment_review.get('correct_count', 0) }} / {{ assessment_review.get('total_questions', 0) }}</p>
+        <ul>
+            {% for reviewed in assessment_review.get('questions', []) %}
+            <li>
+                {{ reviewed.get('question', '') }}
+                ({{ 'Correct' if reviewed.get('is_correct') else 'Incorrect' }})
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if mentor_prompt and assessment_id %}
+    <section>
+        <h2>Mentor Access</h2>
+        <p>{{ mentor_prompt.get('skill_display', mentor_prompt.get('skill_name', 'Skill')) }}</p>
+        {% if mentor_prompt.get('eligible') %}
+            {% if not mentor_prompt.get('opted_in') %}
+            <form method="post" action="/mentor/opt-in">
+                <input type="hidden" name="student_id" value="{{ sid }}">
+                <input type="hidden" name="normalized_skill" value="{{ mentor_prompt.get('normalized_skill', '') }}">
+                <input type="hidden" name="assessment_id" value="{{ assessment_id }}">
+                <button type="submit">Opt In As Mentor</button>
+            </form>
+            {% endif %}
+            <form method="post" action="/mentor/opt-out">
+                <input type="hidden" name="student_id" value="{{ sid }}">
+                <input type="hidden" name="normalized_skill" value="{{ mentor_prompt.get('normalized_skill', '') }}">
+                <input type="hidden" name="assessment_id" value="{{ assessment_id }}">
+                <button type="submit" class="secondary">Opt Out</button>
+            </form>
+        {% else %}
+        <p>You are not eligible for mentor opt-in yet.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <section>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=tests">Back to Dashboard</a>
+        {% if goal_skill_id %}
+        <a class="button-link secondary" href="/students/{{ sid }}/skills/{{ goal_skill_id }}/coding-test">Open Coding Test</a>
+        {% endif %}
+    </section>
+    {% else %}
+    <section>
+        <p class="error">Assessment data is unavailable.</p>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=tests">Back to Dashboard</a>
+    </section>
+    {% endif %}
+</main>
+</body>
+</html>

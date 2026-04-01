@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Signup</title>
+    <link rel="stylesheet" href="/static/css/company_signup.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    <h1>Company Signup</h1>
+    <p>Simple company registration page.</p>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <section>
+        <form method="post" action="/company/signup">
+            <label for="signup-username">Username</label>
+            <input id="signup-username" name="username" type="text" required>
+
+            <label for="signup-password">Password</label>
+            <input id="signup-password" name="password" type="password" required>
+
+            <label for="signup-confirm-password">Confirm Password</label>
+            <input id="signup-confirm-password" name="confirm_password" type="password" required>
+
+            <button type="submit">Create Company Account</button>
+            <a class="button-link secondary" href="/company/auth">Back to Login</a>
+            <a class="button-link secondary" href="/onboarding">Student Onboarding</a>
+        </form>
+    </section>
+</main>
+</body>
+</html>

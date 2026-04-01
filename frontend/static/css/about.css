@@ -1,0 +1,275 @@
+body {
+    margin: 0;
+    background: #ffffff;
+    color: #000000;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.ribbon {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #f3f3f6;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.ribbon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 50px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ribbon-button:hover {
+    transform: translateY(-1px);
+}
+
+.login-button {
+    border: 1.5px solid #ea8500c7;
+    background: #ffffff;
+    color: #ea8500c7;
+   
+}
+
+.signup-button {
+    border: 1.5px solid #ea8500c7;
+    background: #ea8500c7;
+    color: #ffffff;
+   
+}
+
+.ribbon-title {
+    margin-right: auto;
+    align-self: center;
+    font-size: 27px;
+    font-weight: 1000;
+    color: #000000;
+    letter-spacing: 0.4px;
+    
+}
+
+.about-main {
+    padding: 88px 20px 30px;
+}
+
+.about-shell {
+    width: min(1100px, 100%);
+    margin: 0 auto;
+}
+
+.carousel-card {
+    width: 100%;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+    padding: 18px;
+    box-sizing: border-box;
+    margin-bottom: 22px;
+}
+
+.carousel {
+    position: relative;
+    width: 100%;
+    height: 360px;
+    overflow: hidden;
+    background: #f2f2f2;
+}
+
+.carousel-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.75s ease;
+    will-change: transform;
+}
+
+.carousel-image {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.about-text {
+    margin: 0 2px 22px;
+    
+    font-family: inherit;
+    font-style: normal;
+}
+
+.about-text h2 {
+    margin: 0 0 10px;
+    font-size: 45px;
+    font-family: inherit;
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: 0.2px;
+}
+
+.about-text p {
+    margin: 0;
+    line-height: 1.55;
+    max-width: 980px;
+}
+
+.expand-cards {
+    display: flex;
+    align-items: stretch;
+    gap: 22px;
+}
+
+.expand-card {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 300px;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 14px;
+    box-sizing: border-box;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    transition: flex 0.5s ease, transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.expand-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.36) 100%);
+    pointer-events: none;
+}
+
+.expand-card.for-you,
+.expand-card.for-companies {
+    background-image: none;
+}
+
+.expand-card.is-active {
+    flex: 1.85 1 0;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+}
+
+.expand-trigger {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #101828;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.expand-title {
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 1.08;
+}
+
+.expand-arrow {
+    font-size: 32px;
+    line-height: 1;
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+}
+
+.expand-card.is-active .expand-arrow {
+    transform: translateX(4px);
+}
+
+.expand-content {
+    position: relative;
+    z-index: 1;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-top: 0;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0 16px;
+    transition: max-height 0.5s ease, opacity 0.35s ease, margin-top 0.35s ease, padding 0.35s ease;
+}
+
+.expand-content p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.55;
+}
+
+.expand-card.is-active .expand-content {
+    max-height: 230px;
+    opacity: 1;
+    margin-top: 10px;
+    padding: 14px 16px 16px;
+}
+
+@media (max-width: 720px) {
+    .ribbon {
+        justify-content: flex-start;
+        padding: 10px 10px;
+    }
+
+    .ribbon-button {
+        min-width: 84px;
+        padding: 8px 14px;
+    }
+
+    .carousel-card {
+        padding: 12px;
+    }
+
+    .ribbon-title {
+        font-size: 17px;
+    }
+
+    .carousel {
+        height: 240px;
+    }
+
+    .about-main {
+        padding-top: 78px;
+    }
+
+    .about-text h2 {
+        font-size: 34px;
+    }
+
+    .expand-cards {
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .expand-card,
+    .expand-card.is-active {
+        flex: 1 1 auto;
+        min-height: 230px;
+    }
+
+    .expand-title {
+        font-size: 22px;
+    }
+
+    .expand-arrow {
+        font-size: 28px;
+    }
+}

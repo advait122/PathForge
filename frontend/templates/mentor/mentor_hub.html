@@ -1,0 +1,97 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentor Hub</title>
+    <link rel="stylesheet" href="/static/css/mentor_hub.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set sid = student.get('id', 0) %}
+
+    <h1>Mentor Hub</h1>
+    <p>{{ student.get('name', 'Student') }} | Open as Mentor: {{ open_as_mentor|default(0) }} | Open as Seeker: {{ open_as_seeker|default(0) }}</p>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if success %}
+    <p class="success">{{ success }}</p>
+    {% endif %}
+
+    <section>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=mentor">Back to Dashboard</a>
+        {% if request_skill %}
+        <a class="button-link" href="/mentor/mentors?skill={{ request_skill.get('normalized_skill') }}&student_id={{ sid }}">Find Mentor for {{ request_skill.get('skill_display') }}</a>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Mentor Availability</h2>
+        <ul>
+            {% for item in mentor_toggle_skills %}
+            <li>
+                {{ item.get('skill_display', item.get('normalized_skill', '-')) }}
+                {% if item.get('opted_in') == 1 %}
+                <form method="post" action="/mentor/hub/opt-out">
+                    <input type="hidden" name="student_id" value="{{ sid }}">
+                    <input type="hidden" name="normalized_skill" value="{{ item.get('normalized_skill', '') }}">
+                    <button type="submit" class="secondary">Opt Out</button>
+                </form>
+                {% else %}
+                <form method="post" action="/mentor/hub/opt-in">
+                    <input type="hidden" name="student_id" value="{{ sid }}">
+                    <input type="hidden" name="normalized_skill" value="{{ item.get('normalized_skill', '') }}">
+                    <button type="submit">Opt In</button>
+                </form>
+                {% endif %}
+            </li>
+            {% else %}
+            <li>No skills available for mentor toggle.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Sessions as Mentor</h2>
+        <ul>
+            {% for session in sessions_as_mentor %}
+            <li>
+                Session {{ session.get('id') }} - {{ session.get('skill_display', '-') }} - {{ session.get('status', '-') }}
+                <a class="button-link secondary" href="/mentor/sessions/{{ session.get('id') }}?student_id={{ sid }}">Open</a>
+            </li>
+            {% else %}
+            <li>No mentor sessions yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Sessions as Seeker</h2>
+        <ul>
+            {% for session in sessions_as_seeker %}
+            <li>
+                Session {{ session.get('id') }} - {{ session.get('skill_display', '-') }} - {{ session.get('status', '-') }}
+                <a class="button-link secondary" href="/mentor/sessions/{{ session.get('id') }}?student_id={{ sid }}">Open</a>
+            </li>
+            {% else %}
+            <li>No seeker sessions yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Skills You Mentor</h2>
+        <ul>
+            {% for row in mentor_skills %}
+            <li>{{ row.get('skill_display', row.get('normalized_skill', '-')) }}</li>
+            {% else %}
+            <li>You are not opted in for any skill.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</main>
+</body>
+</html>

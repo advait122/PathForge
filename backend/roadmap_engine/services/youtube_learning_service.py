@@ -348,5 +348,9 @@ def select_playlist(goal_id: int, goal_skill_id: int, recommendation_id: int, sk
     return selected
 
 
+def clear_selected_playlist(goal_id: int, goal_skill_id: int) -> None:
+    playlist_repo.clear_selected_recommendation(goal_id, goal_skill_id)
+
+
 def get_selected_playlist(goal_id: int, goal_skill_id: int) -> dict | None:
     return playlist_repo.get_selected_recommendation(goal_id, goal_skill_id)

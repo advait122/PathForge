@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentor Chat</title>
+    <link rel="stylesheet" href="/static/css/mentor_chat.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set sid = student.get('id', 0) %}
+    {% set session_id = session.get('id') %}
+
+    <h1>Mentor Session</h1>
+    <p><strong>Skill:</strong> {{ skill_display|default('-') }}</p>
+    <p><strong>Status:</strong> {{ session.get('status', '-') }}</p>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if success %}
+    <p class="success">{{ success }}</p>
+    {% endif %}
+
+    <section>
+        <a class="button-link secondary" href="/mentor/hub?student_id={{ sid }}">Back to Mentor Hub</a>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=mentor">Back to Dashboard</a>
+    </section>
+
+    <section>
+        <h2>Messages</h2>
+        <ul>
+            {% for message in session.get('messages', []) %}
+            <li>
+                <strong>{{ 'You' if message.get('sender_id') == sid else 'Other' }}:</strong>
+                {{ message.get('message_text', '') }}
+            </li>
+            {% else %}
+            <li>No messages yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section>
+        <h2>Send Message</h2>
+        <form method="post" action="/mentor/sessions/{{ session_id }}/message">
+            <input type="hidden" name="student_id" value="{{ sid }}">
+            <label for="message-text">Message</label>
+            <textarea id="message-text" name="message_text" required></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </section>
+
+    {% if session.get('status') == 'open' %}
+    <section>
+        <h2>Session Actions</h2>
+        <form method="post" action="/mentor/sessions/{{ session_id }}/close">
+            <input type="hidden" name="student_id" value="{{ sid }}">
+            <button type="submit">Mark Session Resolved</button>
+        </form>
+
+        {% if is_seeker %}
+        <form method="post" action="/mentor/sessions/{{ session_id }}/cancel">
+            <input type="hidden" name="student_id" value="{{ sid }}">
+            <input type="hidden" name="normalized_skill" value="{{ session.get('normalized_skill', '') }}">
+            <button type="submit" class="secondary">Cancel Session</button>
+        </form>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if is_seeker and session.get('status') != 'open' %}
+    <section>
+        <h2>Leave Review</h2>
+        <form method="post" action="/mentor/sessions/{{ session_id }}/review">
+            <input type="hidden" name="student_id" value="{{ sid }}">
+
+            <label for="rating">Rating (1-5)</label>
+            <input id="rating" name="rating" type="number" min="1" max="5" required>
+
+            <label for="review-text">Review</label>
+            <textarea id="review-text" name="review_text"></textarea>
+
+            <button type="submit">Submit Review</button>
+        </form>
+    </section>
+    {% endif %}
+</main>
+</body>
+</html>

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -lh /c/Users/ADVAIT/Desktop/CodeMap/*.db)"
+      "Bash(ls -lh /c/Users/ADVAIT/Desktop/CodeMap/*.db)",
+      "Bash(find /c/Users/ADVAIT/Desktop/CodeMap -maxdepth 1 -name *.py -o -name main.py -o -name app.py)",
+      "Bash(grep -E \"\\\\.\\(py|sql\\)$\")",
+      "Bash(grep -E \"\\\\.py$\")"
     ]
   }
 }

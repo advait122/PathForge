@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Job Step 2</title>
+    <link rel="stylesheet" href="/static/css/company_job_step2.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    <h1>Job Creation - Step 2</h1>
+    <p>Finalize screening settings for {{ company.get('username', 'Company') }}.</p>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <section>
+        <h2>Draft Summary</h2>
+        <p><strong>Description:</strong> {{ draft.get('job_description', '') }}</p>
+        <p><strong>Allow Active Backlog:</strong> {{ 'Yes' if draft.get('allow_active_backlog', True) else 'No' }}</p>
+        <p><strong>Required Skills:</strong></p>
+        <ul>
+            {% for skill in required_skill_labels %}
+            <li>{{ skill }}</li>
+            {% else %}
+            <li>No skills selected.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section>
+        <form method="post" action="/company/job/create">
+            <label for="min-cgpa">Minimum CGPA</label>
+            <input id="min-cgpa" name="min_cgpa" type="number" step="0.01" min="0" max="10" value="7.0" required>
+
+            <label for="shortlist-count">Shortlist Count</label>
+            <input id="shortlist-count" name="shortlist_count" type="number" min="1" value="20" required>
+
+            <label for="application-deadline">Application Deadline</label>
+            <input id="application-deadline" name="application_deadline" type="datetime-local" required>
+
+            <button type="submit">Create Job</button>
+            <a class="button-link secondary" href="/company/job/create/step1">Back to Step 1</a>
+        </form>
+    </section>
+</main>
+</body>
+</html>

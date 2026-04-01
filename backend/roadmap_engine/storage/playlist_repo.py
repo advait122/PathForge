@@ -120,6 +120,17 @@ def select_recommendation(goal_id: int, goal_skill_id: int, recommendation_id: i
         )
 
 
+def clear_selected_recommendation(goal_id: int, goal_skill_id: int) -> None:
+    with transaction() as connection:
+        connection.execute(
+            """
+            DELETE FROM goal_skill_selected_playlists
+            WHERE goal_id = ? AND goal_skill_id = ?
+            """,
+            (goal_id, goal_skill_id),
+        )
+
+
 def get_selected_recommendation(goal_id: int, goal_skill_id: int) -> dict | None:
     connection = get_connection()
     try:

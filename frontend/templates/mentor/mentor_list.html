@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentor List</title>
+    <link rel="stylesheet" href="/static/css/mentor_list.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set sid = student.get('id', 0) %}
+
+    <h1>Mentors for {{ skill_display|default(skill|default('Skill')) }}</h1>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <section>
+        <a class="button-link secondary" href="/mentor/hub?student_id={{ sid }}">Back to Mentor Hub</a>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=mentor">Back to Dashboard</a>
+    </section>
+
+    <section>
+        <h2>Available Mentors</h2>
+        <ul>
+            {% for mentor in mentors %}
+            {% set mentor_id = mentor.get('student_id', mentor.get('id')) %}
+            {% set open_session = open_mentor_sessions.get(mentor_id) if open_mentor_sessions else None %}
+            <li>
+                <p><strong>{{ mentor.get('name', 'Mentor') }}</strong></p>
+                <p>Score: {{ mentor.get('mentor_score', '-') }}</p>
+                <p>Rating: {{ mentor.get('rating_avg', '-') }}</p>
+                {% if open_session %}
+                <a class="button-link" href="/mentor/sessions/{{ open_session }}?student_id={{ sid }}">Open Existing Session</a>
+                {% else %}
+                <form method="post" action="/mentor/sessions/start">
+                    <input type="hidden" name="seeker_id" value="{{ sid }}">
+                    <input type="hidden" name="mentor_id" value="{{ mentor_id }}">
+                    <input type="hidden" name="normalized_skill" value="{{ skill }}">
+                    <button type="submit">Start Session</button>
+                </form>
+                {% endif %}
+            </li>
+            {% else %}
+            <li>No mentors available right now.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</main>
+</body>
+</html>

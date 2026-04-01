@@ -25,7 +25,7 @@ app = FastAPI(
 app.include_router(pages_router)
 app.include_router(mentor_router)
 
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_STATIC_DIR = PROJECT_ROOT / "frontend" / "static"
+app.mount("/static", StaticFiles(directory=FRONTEND_STATIC_DIR), name="static")
 

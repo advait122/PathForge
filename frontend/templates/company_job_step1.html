@@ -1,0 +1,51 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Job Step 1</title>
+    <link rel="stylesheet" href="/static/css/company_job_step1.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set saved_required = draft.get('required_skills', []) if draft else [] %}
+    {% set saved_description = draft.get('job_description', '') if draft else '' %}
+    {% set allow_backlog = draft.get('allow_active_backlog', True) if draft else True %}
+
+    <h1>Job Creation - Step 1</h1>
+    <p>Welcome {{ company.get('username', 'Company') }}.</p>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <section>
+        <form method="post" action="/company/job/create/step1">
+            <label>Required Skills</label>
+            <div class="grid">
+                {% for skill in predefined_skills %}
+                <label class="check-row">
+                    <input type="checkbox" name="selected_skills" value="{{ skill }}" {% if skill in saved_required %}checked{% endif %}>{{ skill }}
+                </label>
+                {% endfor %}
+            </div>
+
+            <label for="custom-required-skills">Custom Required Skills (comma separated)</label>
+            <input id="custom-required-skills" name="custom_required_skills" type="text">
+
+            <label for="job-description">Job Description</label>
+            <textarea id="job-description" name="job_description" required>{{ saved_description }}</textarea>
+
+            <label for="active-backlog">Allow Active Backlog</label>
+            <select id="active-backlog" name="active_backlog" required>
+                <option value="yes" {% if allow_backlog %}selected{% endif %}>Yes</option>
+                <option value="no" {% if not allow_backlog %}selected{% endif %}>No</option>
+            </select>
+
+            <button type="submit">Continue to Step 2</button>
+            <a class="button-link secondary" href="/company/dashboard">Go to Dashboard</a>
+        </form>
+    </section>
+</main>
+</body>
+</html>

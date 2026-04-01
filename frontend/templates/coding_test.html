@@ -1,0 +1,117 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coding Test</title>
+    <link rel="stylesheet" href="/static/css/coding_test.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<main>
+    {% set sid = student.get('id', 0) if student else 0 %}
+    {% set goal_skill_id = goal_skill.get('id') if goal_skill else None %}
+    {% set coding_id = coding_assessment.get('id') if coding_assessment else None %}
+
+    {% if goal_skill_id %}
+        {% set submit_action = '/students/' ~ sid ~ '/skills/' ~ goal_skill_id ~ '/coding-test/submit' %}
+        {% set modern_submit = True %}
+    {% elif coding_id %}
+        {% set submit_action = '/students/' ~ sid ~ '/skills/coding-tests/' ~ coding_id ~ '/submit' %}
+        {% set modern_submit = False %}
+    {% else %}
+        {% set submit_action = '' %}
+        {% set modern_submit = True %}
+    {% endif %}
+
+    <h1>Coding Test</h1>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if coding_assessment %}
+    <section>
+        <h2>Assessment Info</h2>
+        <p><strong>Skill:</strong> {{ goal_skill.get('skill_name', coding_assessment.get('skill_name', '-')) if goal_skill else coding_assessment.get('skill_name', '-') }}</p>
+        <p><strong>Duration:</strong> {{ coding_duration_minutes|default('-') }} minutes</p>
+        <p><strong>Deadline:</strong> {{ coding_deadline_iso|default('-') }}</p>
+    </section>
+
+    {% if not show_results %}
+    <section>
+        <h2>Questions</h2>
+        {% if submit_action %}
+        <form method="post" action="{{ submit_action }}">
+            {% for question in coding_assessment.get('questions', []) %}
+            <div class="question-block">
+                <p><strong>Problem {{ loop.index }}:</strong> {{ question.get('prompt', question.get('question', '')) }}</p>
+                {% if question.get('example_input') %}
+                <p><strong>Input:</strong> {{ question.get('example_input') }}</p>
+                {% endif %}
+                {% if question.get('example_output') %}
+                <p><strong>Expected Output:</strong> {{ question.get('example_output') }}</p>
+                {% endif %}
+
+                {% if modern_submit %}
+                <label for="coding-language-{{ loop.index0 }}">Language</label>
+                <select id="coding-language-{{ loop.index0 }}" name="coding_language_{{ loop.index0 }}" required>
+                    <option value="python">python</option>
+                    <option value="javascript">javascript</option>
+                    <option value="java">java</option>
+                    <option value="cpp">cpp</option>
+                </select>
+
+                <label for="coding-code-{{ loop.index0 }}">Code</label>
+                <textarea id="coding-code-{{ loop.index0 }}" name="coding_code_{{ loop.index0 }}" required></textarea>
+                {% else %}
+                <label for="legacy-code-{{ loop.index0 }}">Code</label>
+                <textarea id="legacy-code-{{ loop.index0 }}" name="code_{{ loop.index0 }}" required></textarea>
+                {% endif %}
+            </div>
+            {% else %}
+            <p>No coding questions available.</p>
+            {% endfor %}
+            <button type="submit">Submit Coding Test</button>
+        </form>
+        {% else %}
+        <p class="error">Submit route unavailable for this assessment.</p>
+        {% endif %}
+    </section>
+    {% else %}
+    <section>
+        <h2>Result</h2>
+        <p><strong>Passed:</strong> {{ 'Yes' if coding_assessment.get('passed') == 1 else 'No' }}</p>
+        <p><strong>Score:</strong> {{ coding_assessment.get('score_percent', coding_assessment.get('coding_score', '-')) }}</p>
+        <p><strong>Final Score:</strong> {{ coding_assessment.get('final_score', '-') }}</p>
+
+        {% if coding_assessment.get('execution_results') %}
+        <h3>Execution Results</h3>
+        <ul>
+            {% for result in coding_assessment.get('execution_results', []) %}
+            <li>
+                {{ result.get('status', 'unknown') }}
+                {% if result.get('message') %}
+                <pre>{{ result.get('message') }}</pre>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <section>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=tests">Back to Dashboard</a>
+        {% if goal_skill_id %}
+        <a class="button-link secondary" href="/students/{{ sid }}/skills/{{ goal_skill_id }}/test">Back to MCQ Test</a>
+        {% endif %}
+    </section>
+    {% else %}
+    <section>
+        <p class="error">Coding assessment data is unavailable.</p>
+        <a class="button-link secondary" href="/students/{{ sid }}/dashboard?section=tests">Back to Dashboard</a>
+    </section>
+    {% endif %}
+</main>
+</body>
+</html>

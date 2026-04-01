@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About</title>
+    <link rel="stylesheet" href="/static/css/about.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+    <header class="ribbon">
+        <span class="ribbon-title">PathForge.</span>
+        <a class="ribbon-button login-button" href="/onboarding?mode=login">Log in</a>
+        <a class="ribbon-button signup-button" href="/onboarding?mode=signup">Sign up</a>
+    </header>
+    <main class="about-main">
+        <div class="about-shell">
+            <section class="carousel-card" aria-label="Featured images">
+                <div class="carousel" id="about-carousel">
+                    <div class="carousel-track">
+                        <img class="carousel-image" src="/static/images/logo1.png?v={{ asset_version|default('1') }}" alt="Carousel image 1">
+                        <img class="carousel-image" src="/static/images/logo2.png?v={{ asset_version|default('1') }}" alt="Carousel image 2">
+                        <img class="carousel-image" src="/static/images/logo3.png?v={{ asset_version|default('1') }}" alt="Carousel image 3">
+                        <img class="carousel-image" src="/static/images/logo4.png?v={{ asset_version|default('1') }}" alt="Carousel image 4">
+                    </div>
+                </div>
+            </section>
+
+            <section class="about-text" aria-label="About us">
+                <h2>About Us</h2>
+                <p>
+                    PathForge is an AI-powered career platform that connects skill building with real hiring outcomes.
+                    We guide you from learning to assessment to opportunity matching, while helping companies
+                    quickly identify your skills.
+                </p>
+            </section>
+
+            <section class="expand-cards" aria-label="Student and company overview">
+                <article class="expand-card for-you" data-expand-card style="background-image: url('/static/images/for_you.png?v={{ asset_version|default('1') }}');">
+                    <button class="expand-trigger" type="button" aria-expanded="false">
+                        <span class="expand-title">For You</span>
+                        <span class="expand-arrow" aria-hidden="true">&#8594;</span>
+                    </button>
+                    <div class="expand-content">
+                        <p>
+                            Get personalized roadmaps, daily tasks, MCQ + coding assessments, mentor guidance, and
+                            chatbot support. You can also apply to opportunities, including roles from companies
+                            directly registered on PathForge.
+                        </p>
+                    </div>
+                </article>
+
+                <article class="expand-card for-companies" data-expand-card style="background-image: url('/static/images/for_companies.png?v={{ asset_version|default('1') }}');">
+                    <button class="expand-trigger" type="button" aria-expanded="false">
+                        <span class="expand-title">For Companies</span>
+                        <span class="expand-arrow" aria-hidden="true">&#8594;</span>
+                    </button>
+                    <div class="expand-content">
+                        <p>
+                            Register, post openings, define skill and eligibility filters, and review ranked candidate
+                            pools from one dashboard. PathForge helps you shortlist faster using platform performance
+                            and assessment signals.
+                        </p>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        (() => {
+            const carousel = document.getElementById("about-carousel");
+            if (!carousel) {
+                return;
+            }
+
+            const track = carousel.querySelector(".carousel-track");
+            if (!track) {
+                return;
+            }
+
+            const slides = Array.from(track.querySelectorAll(".carousel-image"));
+            if (slides.length === 0) {
+                return;
+            }
+            if (slides.length === 1) {
+                return;
+            }
+
+            const totalSlides = slides.length;
+            const firstClone = slides[0].cloneNode(true);
+            firstClone.setAttribute("aria-hidden", "true");
+            track.appendChild(firstClone);
+
+            let currentIndex = 0;
+            let intervalId = null;
+
+            const showSlide = (index, withTransition = true) => {
+                if (withTransition) {
+                    track.style.transition = "";
+                } else {
+                    track.style.transition = "none";
+                }
+                currentIndex = index;
+                track.style.transform = `translateX(-${currentIndex * 100}%)`;
+            };
+
+            track.addEventListener("transitionend", () => {
+                if (currentIndex === totalSlides) {
+                    showSlide(0, false);
+                    void track.offsetWidth;
+                    track.style.transition = "";
+                }
+            });
+
+            const restartAutoplay = () => {
+                if (intervalId !== null) {
+                    clearInterval(intervalId);
+                }
+                intervalId = setInterval(() => {
+                    showSlide(currentIndex + 1, true);
+                }, 2500);
+            };
+
+            showSlide(0, false);
+            void track.offsetWidth;
+            track.style.transition = "";
+            restartAutoplay();
+
+            const expandCards = Array.from(document.querySelectorAll("[data-expand-card]"));
+            if (expandCards.length > 0) {
+                const setExpanded = (card, expanded) => {
+                    card.classList.toggle("is-active", expanded);
+                    const trigger = card.querySelector(".expand-trigger");
+                    if (trigger) {
+                        trigger.setAttribute("aria-expanded", expanded ? "true" : "false");
+                    }
+                };
+
+                expandCards.forEach((card) => {
+                    setExpanded(card, false);
+                    const trigger = card.querySelector(".expand-trigger");
+                    if (!trigger) {
+                        return;
+                    }
+                    trigger.addEventListener("click", () => {
+                        const alreadyActive = card.classList.contains("is-active");
+                        expandCards.forEach((item) => setExpanded(item, false));
+                        if (!alreadyActive) {
+                            setExpanded(card, true);
+                        }
+                    });
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

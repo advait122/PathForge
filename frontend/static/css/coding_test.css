@@ -1,0 +1,121 @@
+﻿body {
+    margin: 0;
+    padding: 24px;
+    background: #ffffff;
+    color: #000000;
+    font-family: "Segoe UI", Arial, sans-serif;
+    line-height: 1.45;
+}
+
+main {
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 12px;
+}
+
+p {
+    margin: 0 0 12px;
+}
+
+section {
+    border: 1px solid #000000;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+label {
+    display: block;
+    margin: 10px 0 4px;
+    font-weight: 600;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #000000;
+    background: #ffffff;
+    color: #000000;
+    box-sizing: border-box;
+}
+
+textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.check-row {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 400;
+}
+
+.check-row input {
+    width: auto;
+    margin-right: 8px;
+}
+
+button,
+.button-link {
+    display: inline-block;
+    padding: 8px 14px;
+    border: 1px solid #000000;
+    background: #000000;
+    color: #ffffff;
+    text-decoration: none;
+    cursor: pointer;
+    margin: 8px 8px 0 0;
+}
+
+button.secondary,
+.button-link.secondary {
+    background: #ffffff;
+    color: #000000;
+}
+
+.error,
+.success,
+.notice {
+    border: 1px solid #000000;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+th,
+td {
+    border: 1px solid #000000;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+pre {
+    margin: 8px 0 0;
+    padding: 10px;
+    border: 1px solid #000000;
+    white-space: pre-wrap;
+    background: #ffffff;
+}

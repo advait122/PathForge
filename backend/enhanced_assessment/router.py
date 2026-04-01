@@ -22,7 +22,7 @@ from backend.roadmap_engine.storage import students_repo
 router = APIRouter()
 
 # Resolve templates directory relative to this file so there is no circular import
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "web_portal" / "templates"
+_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 

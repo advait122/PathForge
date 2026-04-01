@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+{% set sid = student.get('id', 0) %}
+{% set data = dashboard or {} %}
+{% set section = active_section if active_section else "roadmap" %}
+{% set chat_ctx = chatbot_context if chatbot_context is defined else data.get("chatbot") %}
+
+<header class="ribbon">
+    <a class="ribbon-brand" href="/">PathForge</a>
+    <nav class="ribbon-nav" aria-label="Student sections">
+        <a class="ribbon-link {% if section == 'roadmap' %}active{% endif %}" href="/students/{{ sid }}/dashboard?section=roadmap">Dashboard</a>
+        <a class="ribbon-link {% if section == 'tasks' %}active{% endif %}" href="/students/{{ sid }}/dashboard?section=tasks">Tasks</a>
+        <a class="ribbon-link {% if section == 'tests' %}active{% endif %}" href="/students/{{ sid }}/dashboard?section=tests">Tests</a>
+        <a class="ribbon-link {% if section == 'mentor' %}active{% endif %}" href="/students/{{ sid }}/dashboard?section=mentor">Mentor Hub</a>
+        <a class="ribbon-link {% if section == 'opportunities' %}active{% endif %}" href="/students/{{ sid }}/dashboard?section=opportunities">Opportunities</a>
+    </nav>
+</header>
+
+<main class="dashboard-main {% if section == 'tasks' %}dashboard-main--tasks{% endif %}">
+    {% if error %}
+    <div class="status-banner status-error">{{ error }}</div>
+    {% endif %}
+
+    {% if section == "roadmap" %}
+    {% set progress_ctx = data.get("progress", {}) %}
+    {% set progress_percent = progress_ctx.get("completion_percent", 0) %}
+    {% set active_skill = data.get("active_skill") %}
+    <section class="skills-deck" data-skills-deck>
+        <article class="skills-deck-card" data-skills-card="mine">
+            <img class="skills-deck-image" src="/static/images/your_skills.png?v={{ asset_version|default('1') }}" alt="Your skills">
+            <button class="skills-deck-button" type="button" data-skills-open="mine" aria-expanded="false">
+                <span>your skills</span>
+                <span class="skills-deck-arrow" aria-hidden="true">&#8594;</span>
+            </button>
+            <div class="skills-deck-panel" aria-hidden="true">
+                <h3>Your Skills</h3>
+                {% if data.get("known_skills") %}
+                <div class="skills-panel-grid">
+                    {% for skill in data.get("known_skills", []) %}
+                    <div class="skills-panel-item">{{ skill }}</div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p>No user skills yet.</p>
+                {% endif %}
+            </div>
+        </article>
+
+        <article class="skills-deck-card" data-skills-card="required">
+            <img class="skills-deck-image" src="/static/images/required_skills.png?v={{ asset_version|default('1') }}" alt="Required skills">
+            <button class="skills-deck-button" type="button" data-skills-open="required" aria-expanded="false">
+                <span>required skill</span>
+                <span class="skills-deck-arrow" aria-hidden="true">&#8594;</span>
+            </button>
+            <div class="skills-deck-panel" aria-hidden="true">
+                <h3>Required Skills</h3>
+                {% if data.get("required_skills") %}
+                <div class="skills-panel-grid">
+                    {% for skill in data.get("required_skills", []) %}
+                    <div class="skills-panel-item">{{ skill }}</div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p>No required skills extracted yet.</p>
+                {% endif %}
+            </div>
+        </article>
+
+        <article class="skills-deck-card" data-skills-card="gap">
+            <img class="skills-deck-image" src="/static/images/skills_img.png?v={{ asset_version|default('1') }}" alt="Skill gap">
+            <button class="skills-deck-button" type="button" data-skills-open="gap" aria-expanded="false">
+                <span>skill gap</span>
+                <span class="skills-deck-arrow" aria-hidden="true">&#8594;</span>
+            </button>
+            <div class="skills-deck-panel" aria-hidden="true">
+                <h3>Skill Gap</h3>
+                {% set gap = namespace(count=0) %}
+                <div class="skills-panel-grid">
+                    {% for skill in data.get("goal_skills", []) %}
+                        {% if skill.get("status") != "completed" %}
+                            {% set gap.count = gap.count + 1 %}
+                            <div class="skills-panel-item">{{ skill.get("skill_name", "") }}</div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if gap.count == 0 %}
+                <p>No remaining skills. Great work.</p>
+                {% endif %}
+            </div>
+        </article>
+    </section>
+
+    <section class="dashboard-top-deck" data-playlist-deck>
+        <div class="goal-stack" data-goal-stack>
+            <article class="page-card goal-details-card">
+                <h2 class="goal-ribbon">Goal</h2>
+                <p class="goal-name">{{ data.get("goal", {}).get("goal_text", "Not set") }}</p>
+                <p><strong>Target Date:</strong> {{ data.get("goal_target_date_display", "Not set") }}</p>
+                {% set months_remaining = data.get("goal_months_remaining") %}
+                <p>
+                    <strong>Time Remaining:</strong>
+                    {% if months_remaining is not none %}
+                        {{ months_remaining }} month{% if months_remaining != 1 %}s{% endif %}
+                    {% else %}
+                        Not available
+                    {% endif %}
+                </p>
+            </article>
+
+            <article class="page-card goal-progress-card">
+                <h2 class="goal-ribbon">Goal Completion</h2>
+                <div class="goal-pie-chart" style="--goal-progress: {{ progress_percent }};">
+                    <span class="goal-pie-label">{{ "%.0f"|format(progress_percent) }}%</span>
+                </div>
+                <p>{{ progress_ctx.get("completed_tasks", 0) }} / {{ progress_ctx.get("total_tasks", 0) }} tasks completed</p>
+            </article>
+        </div>
+
+        <article class="playlist-deck-card" data-playlist-card>
+            <img class="playlist-deck-image" src="/static/images/youtube.png?v={{ asset_version|default('1') }}" alt="Playlist section">
+            <button class="playlist-deck-button" type="button" data-playlist-open aria-expanded="false">
+                <span>select playlists</span>
+                <span class="playlist-deck-arrow" aria-hidden="true">&#8594;</span>
+            </button>
+
+            <div class="playlist-deck-panel" aria-hidden="true">
+                <h3>Playlist Selection</h3>
+                {% if active_skill %}
+                {% if data.get("active_skill_recommendations") %}
+                <ul class="playlist-list">
+                    {% for rec in data.get("active_skill_recommendations", []) %}
+                    <li class="playlist-item">
+                        <div>
+                            <p class="playlist-title">
+                                {% if rec.get("playlist_url") %}
+                                <a href="{{ rec.get('playlist_url') }}" target="_blank" rel="noopener noreferrer">{{ rec.get("title", "Playlist") }}</a>
+                                {% else %}
+                                {{ rec.get("title", "Playlist") }}
+                                {% endif %}
+                            </p>
+                            <p class="playlist-channel">{{ rec.get("channel_title", "") }}</p>
+                        </div>
+                        <form method="post" action="/students/{{ sid }}/skills/{{ active_skill.get('id') }}/playlist/select?section=roadmap">
+                            <input type="hidden" name="recommendation_id" value="{{ rec.get('id') }}">
+                            <button
+                                type="submit"
+                                class="playlist-select-btn {% if rec.get('is_selected') == 1 %}is-selected{% else %}is-idle{% endif %}"
+                            >
+                                {% if rec.get('is_selected') == 1 %}Selected{% else %}Select{% endif %}
+                            </button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>No playlist suggestions yet.</p>
+                {% endif %}
+                {% else %}
+                <p>All skills are completed.</p>
+                {% endif %}
+            </div>
+        </article>
+    </section>
+    {% endif %}
+
+    {% if section == "tasks" %}
+    <section class="tasks-weekly-layout">
+        <article class="page-card tasks-weekly-panel">
+            <header class="tasks-course-header">
+                <h2>Weeks</h2>
+            </header>
+
+            {% set weekly_tasks = data.get("upcoming_tasks", []) %}
+            {% if weekly_tasks %}
+            <div class="tasks-week-list">
+                {% for week_tasks in weekly_tasks|batch(7, none) %}
+                {% if week_tasks and week_tasks[0] %}
+                <details class="tasks-week-module" {% if loop.first %}open{% endif %}>
+                    <summary>
+                        <div class="tasks-module-head">
+                            <span class="tasks-module-label">Week {{ loop.index }}</span>
+                        </div>
+                        <span class="tasks-module-chevron" aria-hidden="true">&#8964;</span>
+                    </summary>
+
+                    <div class="tasks-week-body">
+                        {% set week_number = loop.index %}
+                        {% for task in week_tasks if task %}
+                        {% set detail = namespace(watch="", preview="") %}
+                        {% for line_raw in task.get("description", "").split('\n') %}
+                            {% set line = line_raw.strip() %}
+                            {% if not detail.preview and line %}
+                                {% set detail.preview = line %}
+                            {% endif %}
+                            {% if not detail.watch and line.lower().startswith("watch videos") %}
+                                {% set detail.watch = line %}
+                            {% endif %}
+                        {% endfor %}
+
+                        <article
+                            class="tasks-day-item"
+                            role="button"
+                            tabindex="0"
+                            data-task-week="Week {{ week_number }}"
+                            data-task-title="{{ task.get('title', 'Task')|e }}"
+                            data-task-detail="{{ (detail.watch if detail.watch else detail.preview)|e }}"
+                            data-task-minutes="{{ task.get('target_minutes', 0) }}"
+                            data-task-status="{% if task.get('is_completed') == 1 %}Completed{% else %}Pending{% endif %}"
+                        >
+                            <span class="tasks-day-dot" aria-hidden="true"></span>
+                            <div class="tasks-day-content">
+                                <p class="tasks-day-title">{{ task.get("title", "Task") }}</p>
+                                {% if detail.watch %}
+                                <p class="tasks-day-meta">{{ detail.watch }}</p>
+                                {% endif %}
+                                <p class="tasks-day-meta">{{ task.get("target_minutes", 0) }} min</p>
+                            </div>
+                            <form class="tasks-day-form" method="post" action="/students/{{ sid }}/tasks/{{ task.get('id') }}/completion?section=tasks">
+                                <input type="hidden" name="is_completed" value="{{ 0 if task.get('is_completed') == 1 else 1 }}">
+                                <button type="submit" class="tasks-day-action">
+                                    {% if task.get("is_completed") == 1 %}Pending{% else %}Done{% endif %}
+                                </button>
+                            </form>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="tasks-empty">No tasks available yet.</p>
+            {% endif %}
+        </article>
+
+        <article class="page-card tasks-detail-panel" aria-live="polite">
+            <h2>Current Task</h2>
+            <p class="tasks-detail-week" id="tasks-detail-week">Week -</p>
+            <h3 class="tasks-detail-title" id="tasks-detail-title">Select a task</h3>
+            <p class="tasks-detail-description" id="tasks-detail-description">Choose a task from the left panel to view details.</p>
+            <div class="tasks-detail-metrics">
+                <p><strong>Duration:</strong> <span id="tasks-detail-minutes">-</span></p>
+                <p><strong>Status:</strong> <span id="tasks-detail-status">-</span></p>
+            </div>
+        </article>
+    </section>
+    {% endif %}
+
+    {% if section == "tests" %}
+    <section class="cards-grid single">
+        <article class="page-card">
+            <h2>Tests</h2>
+            {% if data.get("goal_skills") %}
+            <ul class="test-list">
+                {% for skill in data.get("goal_skills", []) %}
+                <li class="test-row">
+                    <div>
+                        <p class="test-skill">{{ skill.get("skill_name") }}</p>
+                        <p class="test-status">Status: {{ skill.get("status", "pending") }}</p>
+                    </div>
+                    <div class="test-actions">
+                        <a class="text-button" href="/students/{{ sid }}/skills/{{ skill.get('id') }}/test">MCQ Test</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p>No test-ready skills available.</p>
+            {% endif %}
+
+            {% if data.get("coding_tests") %}
+            <h3>Coding Tests</h3>
+            <ul class="test-list">
+                {% for item in data.get("coding_tests", []) %}
+                <li class="test-row">
+                    <span class="test-skill">{{ item.get("label", "Coding Test") }}</span>
+                    {% if item.get("can_take") %}
+                    <a class="text-button" href="/students/{{ sid }}/skills/{{ item.get('goal_skill_id') }}/coding-test">Start</a>
+                    {% else %}
+                    <span class="locked-note">{{ item.get("lock_reason", "Locked") }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </article>
+    </section>
+    {% endif %}
+
+    {% if section == "mentor" %}
+    <section class="cards-grid single">
+        <article class="page-card">
+            <h2>Mentor Card</h2>
+            {% if data.get("active_skill") %}
+            <p>Get help for your current skill: <strong>{{ data.get("active_skill", {}).get("skill_name") }}</strong>.</p>
+            {% else %}
+            <p>Connect with mentors for guidance and reviews.</p>
+            {% endif %}
+            <a class="text-button" href="/mentor/hub?student_id={{ sid }}">Open Mentor Hub</a>
+        </article>
+    </section>
+    {% endif %}
+
+    {% if section == "opportunities" %}
+    <section class="cards-grid single">
+        <article class="page-card">
+            <h2>Opportunities</h2>
+
+            {% if data.get("company_job_invites") %}
+            <h3>Company Invitations</h3>
+            <ul class="opportunity-list">
+                {% for invite in data.get("company_job_invites", []) %}
+                <li class="opportunity-item">
+                    <div>
+                        <p class="opp-title">{{ invite.get("title", "Invitation") }}</p>
+                        <p class="opp-company">{{ invite.get("company_username", "") }}</p>
+                    </div>
+                    <div class="opp-actions">
+                        <form method="post" action="/students/{{ sid }}/company-jobs/{{ invite.get('job_id') }}/respond?section=opportunities">
+                            <input type="hidden" name="decision" value="apply">
+                            <button type="submit">Apply</button>
+                        </form>
+                        <form method="post" action="/students/{{ sid }}/company-jobs/{{ invite.get('job_id') }}/respond?section=opportunities">
+                            <input type="hidden" name="decision" value="decline">
+                            <button class="button-hollow" type="submit">Decline</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% set opp_buckets = data.get("opportunities", {}) %}
+            {% if opp_buckets %}
+                {% for bucket_name, rows in opp_buckets.items() %}
+                <h3>{{ bucket_name|replace("_", " ")|title }}</h3>
+                {% if rows %}
+                <ul class="opportunity-list">
+                    {% for opp in rows %}
+                    <li class="opportunity-item">
+                        <div>
+                            <p class="opp-title">{{ opp.get("title", "Opportunity") }}</p>
+                            <p class="opp-company">{{ opp.get("company", "") }}</p>
+                        </div>
+                        {% if opp.get("url") %}
+                        <a class="text-button" href="{{ opp.get('url') }}" target="_blank" rel="noopener noreferrer">Open</a>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>No items in this bucket.</p>
+                {% endif %}
+                {% endfor %}
+            {% else %}
+            <p>No opportunities available right now.</p>
+            {% endif %}
+        </article>
+    </section>
+    {% endif %}
+</main>
+
+{% if sid and chat_ctx %}
+<div id="doubtbot-widget" class="doubtbot-widget">
+    <button
+        type="button"
+        class="doubtbot-launcher"
+        id="doubtbot-launcher"
+        aria-label="Open DoubtBot chat"
+        aria-expanded="false"
+        aria-controls="doubtbot-panel"
+    >
+        <canvas id="doubtbot-iridescence" class="doubtbot-iridescence" aria-hidden="true"></canvas>
+        <span class="doubtbot-launcher-text"></span>
+    </button>
+    <span class="doubtbot-label">DoubtBot</span>
+
+    <section id="doubtbot-panel" class="doubtbot-panel" hidden>
+        <header class="doubtbot-header">
+            <div>
+                <h4>DoubtBot</h4>
+                {% if chat_ctx.get("active_skill") %}
+                <p>{{ chat_ctx.get("active_skill", {}).get("skill_name", "") }}</p>
+                {% endif %}
+            </div>
+            <button type="button" id="doubtbot-close" class="doubtbot-close" aria-label="Close">x</button>
+        </header>
+
+        {% if chat_ctx.get("enabled") %}
+        <div class="doubtbot-thread" id="doubtbot-thread">
+            {% if chat_ctx.get("messages") %}
+                {% for item in chat_ctx.get("messages", []) %}
+                <div class="doubtbot-row {% if item.get('role') == 'user' %}is-user{% else %}is-assistant{% endif %}">
+                    <div class="doubtbot-bubble">{{ item.get("message_text", "") }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <p class="doubtbot-empty">No chat yet. Ask your first doubt.</p>
+            {% endif %}
+        </div>
+        <form class="doubtbot-form" method="post" action="/students/{{ sid }}/chat/send?section={{ section }}">
+            <textarea name="question" rows="2" maxlength="1000" placeholder="Type your doubt..." required></textarea>
+            <button type="submit">Send</button>
+        </form>
+        {% else %}
+        <div class="doubtbot-empty">{{ chat_ctx.get("reason", "DoubtBot is unavailable right now.") }}</div>
+        {% endif %}
+    </section>
+</div>
+{% endif %}
+
+<script>
+    (function () {
+        const canvas = document.getElementById("doubtbot-iridescence");
+        const launcher = document.getElementById("doubtbot-launcher");
+        if (!canvas || !launcher) {
+            return;
+        }
+
+        const gl = canvas.getContext("webgl", { antialias: true, alpha: true });
+        if (!gl) {
+            return;
+        }
+
+        const vertexShaderSource = `
+            attribute vec2 position;
+            varying vec2 vUv;
+            void main() {
+                vUv = position * 0.5 + 0.5;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision highp float;
+            uniform float uTime;
+            uniform vec3 uColor;
+            uniform vec3 uResolution;
+            uniform vec2 uMouse;
+            uniform float uAmplitude;
+            uniform float uSpeed;
+            varying vec2 vUv;
+
+            void main() {
+                float mr = min(uResolution.x, uResolution.y);
+                vec2 uv = (vUv.xy * 2.0 - 1.0) * uResolution.xy / mr;
+                uv += (uMouse - vec2(0.5)) * uAmplitude;
+
+                float d = -uTime * 0.5 * uSpeed;
+                float a = 0.0;
+                for (float i = 0.0; i < 8.0; ++i) {
+                    a += cos(i - d - a * uv.x);
+                    d += sin(uv.y * i + a);
+                }
+                d += uTime * 0.5 * uSpeed;
+
+                vec3 col = vec3(
+                    cos(uv * vec2(d, a)) * 0.6 + 0.4,
+                    cos(a + d) * 0.5 + 0.5
+                );
+                col = cos(col * cos(vec3(d, a, 2.5)) * 0.5 + 0.5) * uColor;
+                gl_FragColor = vec4(col, 1.0);
+            }
+        `;
+
+        function compileShader(type, source) {
+            const shader = gl.createShader(type);
+            if (!shader) return null;
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShader = compileShader(gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
+        if (!vertexShader || !fragmentShader) {
+            return;
+        }
+
+        const program = gl.createProgram();
+        if (!program) {
+            return;
+        }
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            return;
+        }
+        gl.useProgram(program);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array([
+                -1, -1,
+                 1, -1,
+                -1,  1,
+                -1,  1,
+                 1, -1,
+                 1,  1
+            ]),
+            gl.STATIC_DRAW
+        );
+
+        const positionLocation = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const uTime = gl.getUniformLocation(program, "uTime");
+        const uColor = gl.getUniformLocation(program, "uColor");
+        const uResolution = gl.getUniformLocation(program, "uResolution");
+        const uMouse = gl.getUniformLocation(program, "uMouse");
+        const uAmplitude = gl.getUniformLocation(program, "uAmplitude");
+        const uSpeed = gl.getUniformLocation(program, "uSpeed");
+
+        const mouse = { x: 0.5, y: 0.5 };
+        gl.uniform3f(uColor, 0.4, 0.6, 0.8);
+        gl.uniform1f(uAmplitude, 0.1);
+        gl.uniform1f(uSpeed, 1.7);
+        gl.uniform2f(uMouse, mouse.x, mouse.y);
+
+        function resize() {
+            const rect = launcher.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.max(1, Math.floor(rect.width * dpr));
+            const height = Math.max(1, Math.floor(rect.height * dpr));
+
+            if (canvas.width !== width || canvas.height !== height) {
+                canvas.width = width;
+                canvas.height = height;
+            }
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.uniform3f(uResolution, canvas.width, canvas.height, canvas.width / canvas.height);
+        }
+
+        function onMouseMove(event) {
+            const rect = launcher.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            mouse.x = (event.clientX - rect.left) / rect.width;
+            mouse.y = 1.0 - (event.clientY - rect.top) / rect.height;
+            gl.uniform2f(uMouse, mouse.x, mouse.y);
+        }
+
+        let animationFrame = 0;
+        function render(time) {
+            gl.uniform1f(uTime, time * 0.001);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            animationFrame = window.requestAnimationFrame(render);
+        }
+
+        launcher.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("resize", resize);
+        resize();
+        animationFrame = window.requestAnimationFrame(render);
+
+        window.addEventListener("beforeunload", function () {
+            window.cancelAnimationFrame(animationFrame);
+        });
+    })();
+
+    (function () {
+        const deck = document.querySelector("[data-skills-deck]");
+        if (!deck) {
+            return;
+        }
+
+        const cards = Array.from(deck.querySelectorAll("[data-skills-card]"));
+        const buttons = Array.from(deck.querySelectorAll("[data-skills-open]"));
+        let activeKey = "";
+
+        function setActive(nextKey) {
+            activeKey = nextKey || "";
+            cards.forEach(function (card) {
+                const key = card.getAttribute("data-skills-card") || "";
+                const panel = card.querySelector(".skills-deck-panel");
+                const button = card.querySelector("[data-skills-open]");
+                const isActive = key === activeKey;
+                const hasActive = activeKey !== "";
+
+                card.classList.toggle("is-active", isActive);
+                card.classList.toggle("is-inactive", hasActive && !isActive);
+                if (panel) {
+                    panel.setAttribute("aria-hidden", isActive ? "false" : "true");
+                }
+                if (button) {
+                    button.setAttribute("aria-expanded", isActive ? "true" : "false");
+                }
+            });
+        }
+
+        buttons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                const key = button.getAttribute("data-skills-open") || "";
+                if (!key) {
+                    return;
+                }
+                if (activeKey === key) {
+                    setActive("");
+                    return;
+                }
+                setActive(key);
+            });
+        });
+
+        setActive("");
+    })();
+
+    (function () {
+        const topDeck = document.querySelector("[data-playlist-deck]");
+        if (!topDeck) {
+            return;
+        }
+
+        const playlistCard = topDeck.querySelector("[data-playlist-card]");
+        const goalStack = topDeck.querySelector("[data-goal-stack]");
+        const button = topDeck.querySelector("[data-playlist-open]");
+        const panel = topDeck.querySelector(".playlist-deck-panel");
+        const forms = Array.from(topDeck.querySelectorAll(".playlist-deck-panel form"));
+        const playlistOpenKey = "pathforge_playlist_panel_open";
+
+        if (!playlistCard || !goalStack || !button || !panel) {
+            return;
+        }
+
+        function setExpanded(isExpanded, persistState) {
+            playlistCard.classList.toggle("is-active", isExpanded);
+            goalStack.classList.toggle("is-inactive", isExpanded);
+            button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+            panel.setAttribute("aria-hidden", isExpanded ? "false" : "true");
+            if (persistState) {
+                window.sessionStorage.setItem(playlistOpenKey, isExpanded ? "1" : "0");
+            }
+        }
+
+        button.addEventListener("click", function () {
+            const nextState = !playlistCard.classList.contains("is-active");
+            setExpanded(nextState, true);
+        });
+
+        forms.forEach(function (form) {
+            form.addEventListener("submit", function () {
+                window.sessionStorage.setItem(playlistOpenKey, "1");
+            });
+        });
+
+        setExpanded(window.sessionStorage.getItem(playlistOpenKey) === "1", false);
+    })();
+
+    (function () {
+        const tasksLayout = document.querySelector(".tasks-weekly-layout");
+        if (!tasksLayout) {
+            return;
+        }
+
+        const items = Array.from(tasksLayout.querySelectorAll(".tasks-day-item"));
+        const weekEl = document.getElementById("tasks-detail-week");
+        const titleEl = document.getElementById("tasks-detail-title");
+        const descriptionEl = document.getElementById("tasks-detail-description");
+        const minutesEl = document.getElementById("tasks-detail-minutes");
+        const statusEl = document.getElementById("tasks-detail-status");
+
+        if (!items.length || !weekEl || !titleEl || !descriptionEl || !minutesEl || !statusEl) {
+            return;
+        }
+
+        function setActive(item) {
+            items.forEach(function (node) {
+                node.classList.remove("is-active");
+                node.setAttribute("aria-selected", "false");
+            });
+
+            item.classList.add("is-active");
+            item.setAttribute("aria-selected", "true");
+
+            weekEl.textContent = item.dataset.taskWeek || "Week -";
+            titleEl.textContent = item.dataset.taskTitle || "Task";
+            descriptionEl.textContent = item.dataset.taskDetail || "No additional details available.";
+            minutesEl.textContent = (item.dataset.taskMinutes || "0") + " min";
+            statusEl.textContent = item.dataset.taskStatus || "Pending";
+        }
+
+        items.forEach(function (item) {
+            item.addEventListener("click", function (event) {
+                if (event.target.closest("form")) {
+                    return;
+                }
+                setActive(item);
+            });
+
+            item.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setActive(item);
+                }
+            });
+        });
+
+        const defaultTask = items.find(function (item) {
+            return (item.dataset.taskStatus || "").toLowerCase() === "pending";
+        }) || items[0];
+
+        setActive(defaultTask);
+    })();
+
+    (function () {
+        const launcher = document.getElementById("doubtbot-launcher");
+        const panel = document.getElementById("doubtbot-panel");
+        const closeBtn = document.getElementById("doubtbot-close");
+        const thread = document.getElementById("doubtbot-thread");
+        const form = panel ? panel.querySelector(".doubtbot-form") : null;
+        const keepOpenKey = "pathforge_doubtbot_open";
+
+        if (!launcher || !panel) {
+            return;
+        }
+
+        function scrollToBottom() {
+            if (thread) {
+                thread.scrollTop = thread.scrollHeight;
+            }
+        }
+
+        function openPanel() {
+            panel.hidden = false;
+            panel.classList.add("is-open");
+            launcher.setAttribute("aria-expanded", "true");
+            scrollToBottom();
+        }
+
+        function closePanel() {
+            panel.hidden = true;
+            panel.classList.remove("is-open");
+            launcher.setAttribute("aria-expanded", "false");
+        }
+
+        launcher.addEventListener("click", function (event) {
+            event.stopPropagation();
+            if (panel.hidden) {
+                openPanel();
+            } else {
+                closePanel();
+            }
+        });
+
+        if (closeBtn) {
+            closeBtn.addEventListener("click", function (event) {
+                event.stopPropagation();
+                closePanel();
+            });
+        }
+
+        panel.addEventListener("click", function (event) {
+            event.stopPropagation();
+        });
+
+        document.addEventListener("click", function () {
+            if (!panel.hidden) {
+                closePanel();
+            }
+        });
+
+        if (form) {
+            form.addEventListener("submit", function () {
+                window.sessionStorage.setItem(keepOpenKey, "1");
+            });
+        }
+
+        if (window.sessionStorage.getItem(keepOpenKey) === "1" || window.location.hash === "#doubtbot-widget") {
+            openPanel();
+            window.sessionStorage.removeItem(keepOpenKey);
+        }
+    })();
+</script>
+</body>
+</html>

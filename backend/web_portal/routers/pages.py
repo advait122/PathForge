@@ -34,7 +34,7 @@ from backend.roadmap_engine.utils import utc_now_iso
 
 router = APIRouter()
 
-TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
+TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 STUDENT_COOKIE_KEY = "student_session_id"
 COMPANY_COOKIE_KEY = "company_session_id"
@@ -210,11 +210,15 @@ def _load_company_draft(request: Request) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
-def home(request: Request) -> RedirectResponse:
-    student = _current_student(request)
-    if student is not None:
-        return RedirectResponse(url=f"/students/{student['id']}/dashboard", status_code=303)
-    return RedirectResponse(url="/onboarding", status_code=303)
+def home(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "about.html",
+        {
+            "request": request,
+            "asset_version": _asset_version(),
+        },
+    )
 
 
 @router.get("/onboarding", response_class=HTMLResponse)
@@ -788,12 +792,16 @@ def select_playlist(
         except ValueError as error:
             raise ValueError("Invalid playlist option. Refresh the dashboard and try again.") from error
 
-        youtube_learning_service.select_playlist(
-            goal["id"],
-            goal_skill_id,
-            recommendation_id_int,
-            goal_skill["skill_name"],
-        )
+        currently_selected = youtube_learning_service.get_selected_playlist(goal["id"], goal_skill_id)
+        if currently_selected and int(currently_selected.get("id", 0)) == recommendation_id_int:
+            youtube_learning_service.clear_selected_playlist(goal["id"], goal_skill_id)
+        else:
+            youtube_learning_service.select_playlist(
+                goal["id"],
+                goal_skill_id,
+                recommendation_id_int,
+                goal_skill["skill_name"],
+            )
     except ValueError as error:
         escaped = quote_plus(str(error))
         return RedirectResponse(

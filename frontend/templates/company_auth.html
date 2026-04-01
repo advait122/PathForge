@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Login</title>
+    <link rel="stylesheet" href="/static/css/company_auth.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<header class="ribbon">
+    <span class="ribbon-title">PathForge</span>
+</header>
+<main>
+    <div class="company-auth-layout">
+        <aside class="for-you-panel">
+            <div class="for-you-card">
+                <img src="/static/images/for_you.png?v={{ asset_version|default('1') }}" alt="For students">
+                <a class="student-image-button" href="/onboarding?mode=login">login as student</a>
+            </div>
+            <p class="blur-text student-question" aria-label="are you a student?">
+                <span style="--delay: 0ms;">Are</span>
+                <span style="--delay: 200ms;">you</span>
+                <span style="--delay: 400ms;">a</span>
+                <span style="--delay: 600ms;">student?</span>
+            </p>
+        </aside>
+
+        <section class="company-login-block">
+            <h1>Company Login</h1>
+
+            {% if error %}
+            <p class="error">{{ error }}</p>
+            {% endif %}
+
+            <form class="company-auth-form" method="post" action="/company/login">
+                <input id="company-username" name="username" type="text" placeholder="Username" required>
+
+                <input id="company-password" name="password" type="password" placeholder="Password" required>
+
+                <button type="submit">Login</button>
+            </form>
+            <p class="alt-text">No company account? <a class="text-link" href="/company/signup">Company signup</a></p>
+        </section>
+    </div>
+</main>
+<script>
+    (function () {
+        const blurText = document.querySelector(".student-question.blur-text");
+        if (!blurText) {
+            return;
+        }
+
+        blurText.addEventListener("mouseenter", function () {
+            blurText.classList.remove("is-replaying");
+            void blurText.offsetWidth;
+            blurText.classList.add("is-replaying");
+        });
+    })();
+</script>
+</body>
+</html>

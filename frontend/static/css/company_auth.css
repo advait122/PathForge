@@ -1,0 +1,370 @@
+body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #000000;
+    font-family: "Segoe UI", Arial, sans-serif;
+    line-height: 1.45;
+}
+
+.ribbon {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    padding: 14px 18px;
+    background: #f3f3f6;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+}
+
+.ribbon-title {
+    font-size: 27px;
+    font-weight: 1000;
+    color: #000000;
+    letter-spacing: 0.4px;
+}
+
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 82px 24px 24px;
+    min-height: calc(100vh - 82px);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.company-auth-layout {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(24px, 4vw, 56px);
+}
+
+.for-you-panel {
+    flex: 0 1 min(430px, 42%);
+    width: min(430px, 100%);
+}
+
+.for-you-card {
+    position: relative;
+    width: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.for-you-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.24) 100%);
+}
+
+.for-you-card img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.student-image-button {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #101828;
+    text-decoration: none;
+    font-size: 1.4rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: right;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+}
+
+.student-image-button::before {
+    content: "\2190";
+    font-size: clamp(34px, 2vw, 42px);
+    line-height: 1;
+}
+
+.student-question {
+    margin: 20px 0 0;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: 0.8px;
+}
+
+.blur-text {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32ch;
+}
+
+.blur-text span {
+    display: inline-block;
+    opacity: 0;
+    filter: blur(6px);
+    transform: translate3d(0, -20px, 0);
+    animation: blur-text-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--delay, 0ms);
+}
+
+.blur-text.is-replaying span {
+    animation-name: blur-text-replay;
+}
+
+@keyframes blur-text-in {
+    0% {
+        opacity: 0;
+        filter: blur(6px);
+        transform: translate3d(0, -20px, 0);
+    }
+    70% {
+        opacity: 0.72;
+        filter: blur(2px);
+        transform: translate3d(0, 2px, 0);
+    }
+    100% {
+        opacity: 1;
+        filter: blur(0);
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes blur-text-replay {
+    0% {
+        opacity: 0;
+        filter: blur(6px);
+        transform: translate3d(0, -20px, 0);
+    }
+    70% {
+        opacity: 0.72;
+        filter: blur(2px);
+        transform: translate3d(0, 2px, 0);
+    }
+    100% {
+        opacity: 1;
+        filter: blur(0);
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.company-login-block {
+    width: min(420px, 100%);
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: none;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 12px;
+}
+
+h1 {
+    margin: 0 0 28px;
+    font-size: 34px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+p {
+    margin: 0 0 12px;
+}
+
+section {
+    border: none;
+    padding: 0;
+    margin-bottom: 16px;
+}
+
+input,
+select,
+textarea {
+    width: 65%;
+    padding: 10px 12px;
+    font-size: 1.1rem;
+    border: 1px solid #000000;
+    background: #ffffff;
+    color: #000000;
+    box-sizing: border-box;
+}
+
+input::placeholder {
+    color: #7d7d7d;
+    opacity: 1;
+}
+
+#company-password {
+    margin-top: 22px;
+}
+
+textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.check-row {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 400;
+}
+
+.check-row input {
+    width: auto;
+    margin-right: 8px;
+}
+
+button,
+.button-link {
+    display: inline-block;
+    padding: 10px 20px;
+    font-size: 1.1rem;
+    border: 1px solid #000000;
+    background: #000000;
+    color: #ffffff;
+    text-decoration: none;
+    cursor: pointer;
+    margin: 8px 8px 0 0;
+}
+
+button[type="submit"] {
+    background: #ea8500c7;
+}
+
+.company-auth-form button[type="submit"] {
+    width: 100%;
+    margin-top: 26px;
+    margin-right: 0;
+    text-align: center;
+}
+
+.company-auth-form input {
+    width: 100%;
+    padding: 12px 16px;
+}
+
+button.secondary,
+.button-link.secondary {
+    background: #ffffff;
+    color: #000000;
+}
+
+.alt-text {
+    width: 100%;
+    margin: 30px 0 0;
+    font-size: 1.1rem;
+}
+
+.text-link {
+    color: #000000;
+    text-decoration: underline;
+}
+
+.error,
+.success,
+.notice {
+    border: 1px solid #000000;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+th,
+td {
+    border: 1px solid #000000;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+pre {
+    margin: 8px 0 0;
+    padding: 10px;
+    border: 1px solid #000000;
+    white-space: pre-wrap;
+    background: #ffffff;
+}
+
+@media (max-width: 640px) {
+    .ribbon {
+        padding: 10px 12px;
+    }
+
+    .ribbon-title {
+        font-size: 21px;
+    }
+
+    main {
+        padding: 84px 14px 20px;
+        min-height: auto;
+    }
+
+    .company-auth-layout {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .for-you-card {
+        width: 100%;
+        flex-basis: 100%;
+    }
+
+    .student-image-button {
+        font-size: 1.1rem;
+        border-radius: 14px;
+    }
+
+    .student-question {
+        font-size: clamp(34px, 10vw, 46px);
+    }
+
+    .company-login-block {
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .company-auth-form input {
+        width: 100%;
+    }
+
+    .company-auth-form button[type="submit"],
+    .alt-text {
+        width: 100%;
+    }
+}
