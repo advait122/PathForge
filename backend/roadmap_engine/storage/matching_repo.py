@@ -12,6 +12,11 @@ def load_existing_matches(goal_id: int) -> dict[int, dict]:
             SELECT
                 opportunity_id,
                 bucket,
+                match_score,
+                required_skills_count,
+                matched_skills_count,
+                missing_skills_json,
+                next_skills_json,
                 eligible_now,
                 last_evaluated_at
             FROM opportunity_match_cache
@@ -22,7 +27,19 @@ def load_existing_matches(goal_id: int) -> dict[int, dict]:
     finally:
         connection.close()
 
-    return {row["opportunity_id"]: dict(row) for row in rows}
+    result: dict[int, dict] = {}
+    for row in rows:
+        item = dict(row)
+        try:
+            item["missing_skills"] = json.loads(item.get("missing_skills_json") or "[]")
+        except Exception:
+            item["missing_skills"] = []
+        try:
+            item["next_skills"] = json.loads(item.get("next_skills_json") or "[]")
+        except Exception:
+            item["next_skills"] = []
+        result[item["opportunity_id"]] = item
+    return result
 
 
 def replace_goal_matches(goal_id: int, matches: list[dict]) -> None:

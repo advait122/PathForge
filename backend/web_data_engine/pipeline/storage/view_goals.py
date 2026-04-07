@@ -1,10 +1,7 @@
-import sqlite3
-from pathlib import Path
 import ast
+from backend.roadmap_engine.storage.database import get_connection
 
-DB_PATH = Path("opportunities.db")
-
-conn = sqlite3.connect(DB_PATH)
+conn = get_connection()
 cursor = conn.cursor()
 
 cursor.execute("""

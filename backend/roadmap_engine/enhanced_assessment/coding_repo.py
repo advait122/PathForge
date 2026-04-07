@@ -27,11 +27,17 @@ CREATE INDEX IF NOT EXISTS idx_skill_coding_assessments_assessment
 ON skill_coding_assessments(assessment_id);
 """
 
+_TABLE_READY = False
+
 
 def ensure_table() -> None:
+    global _TABLE_READY
+    if _TABLE_READY:
+        return
     with transaction() as connection:
         connection.execute(CREATE_TABLE_SQL)
         connection.execute(CREATE_INDEX_SQL)
+    _TABLE_READY = True
 
 
 def create_or_replace_coding_assessment(
@@ -104,6 +110,46 @@ def get_coding_assessment(assessment_id: int) -> dict | None:
         json.loads(item["latest_submission_json"]) if item["latest_submission_json"] else None
     )
     return item
+
+
+def list_coding_assessments_by_assessment_ids(assessment_ids: list[int]) -> dict[int, dict]:
+    ensure_table()
+    normalized_ids = [int(value) for value in assessment_ids if int(value) > 0]
+    if not normalized_ids:
+        return {}
+
+    placeholders = ", ".join("?" for _ in normalized_ids)
+    query = f"""
+        SELECT
+            id,
+            assessment_id,
+            goal_id,
+            goal_skill_id,
+            coding_questions_json,
+            latest_submission_json,
+            score_percent,
+            passed,
+            created_at,
+            submitted_at
+        FROM skill_coding_assessments
+        WHERE assessment_id IN ({placeholders})
+    """
+
+    connection = get_connection()
+    try:
+        rows = connection.execute(query, normalized_ids).fetchall()
+    finally:
+        connection.close()
+
+    result: dict[int, dict] = {}
+    for row in rows:
+        item = dict(row)
+        item["questions"] = json.loads(item["coding_questions_json"]) if item["coding_questions_json"] else []
+        item["latest_submission"] = (
+            json.loads(item["latest_submission_json"]) if item["latest_submission_json"] else None
+        )
+        result[int(item["assessment_id"])] = item
+    return result
 
 
 def submit_coding_assessment(

@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
+import logging
 from pathlib import Path
 import json
+import os
 import time
 from urllib.parse import quote_plus
 
@@ -32,6 +34,7 @@ from backend.roadmap_engine.storage import students_repo
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -53,6 +56,18 @@ ALLOWED_COMPANY_DASHBOARD_SECTIONS = {
     "eligible",
     "applied",
 }
+
+
+def _dashboard_perf_enabled() -> bool:
+    raw = os.getenv("DASHBOARD_PERF_LOG", "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _dashboard_route_log(message: str) -> None:
+    if not _dashboard_perf_enabled():
+        return
+    print(message)
+    logger.info(message)
 
 
 def _asset_version() -> str:
@@ -709,21 +724,37 @@ def dashboard_page(
     error: str = "",
     section: str = "roadmap",
 ) -> HTMLResponse:
+    request_started = time.perf_counter()
+    _dashboard_route_log(f"[perf][dashboard_route] START student_id={student_id}")
+
     student = _student_or_404(student_id)
     active_section = _normalize_dashboard_section(section, "roadmap")
     if active_section == "mentor":
         url = f"/mentor/hub?student_id={student_id}"
         if error:
             url = f"{url}&error={quote_plus(error)}"
+        _dashboard_route_log(
+            "[perf][dashboard_route] redirected_to_mentor "
+            f"{time.perf_counter() - request_started:.4f}s student_id={student_id}"
+        )
         return RedirectResponse(url=url, status_code=303)
 
     try:
-        dashboard = dashboard_service.get_dashboard(student_id)
+        service_started = time.perf_counter()
+        dashboard = dashboard_service.get_dashboard(student_id, student=student)
+        _dashboard_route_log(
+            "[perf][dashboard_route] dashboard_service "
+            f"{time.perf_counter() - service_started:.4f}s student_id={student_id}"
+        )
     except ValueError as exc:
         escaped = quote_plus(str(exc))
+        _dashboard_route_log(
+            "[perf][dashboard_route] error "
+            f"{time.perf_counter() - request_started:.4f}s student_id={student_id} err={exc}"
+        )
         return RedirectResponse(url=f"/onboarding?error={escaped}", status_code=303)
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "dashboard.html",
         {
@@ -738,6 +769,11 @@ def dashboard_page(
             "active_section": active_section,
         },
     )
+    _dashboard_route_log(
+        "[perf][dashboard_route] TOTAL "
+        f"{time.perf_counter() - request_started:.4f}s student_id={student_id}"
+    )
+    return response
 
 
 @router.get("/students/{student_id}/locations/countries", response_class=JSONResponse)

@@ -1,4 +1,4 @@
-from backend.roadmap_engine.storage.database import transaction
+from backend.roadmap_engine.storage.database import is_postgres_enabled, transaction
 
 
 BASE_TABLE_STATEMENTS = [
@@ -118,6 +118,20 @@ BASE_TABLE_STATEMENTS = [
         submitted_at TEXT,
         FOREIGN KEY(goal_id) REFERENCES career_goals(id) ON DELETE CASCADE,
         FOREIGN KEY(goal_skill_id) REFERENCES career_goal_skills(id) ON DELETE CASCADE
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS opportunities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        company TEXT,
+        type TEXT,
+        deadline TEXT,
+        skills TEXT,
+        url TEXT UNIQUE,
+        source TEXT,
+        content_hash TEXT,
+        last_updated TEXT
     );
     """,
     """
@@ -304,6 +318,9 @@ INDEX_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_career_goals_student_status ON career_goals(student_id, status);",
     "CREATE INDEX IF NOT EXISTS idx_goal_skills_goal_status ON career_goal_skills(goal_id, status);",
     "CREATE INDEX IF NOT EXISTS idx_plan_tasks_plan_date ON roadmap_plan_tasks(plan_id, task_date);",
+    "CREATE INDEX IF NOT EXISTS idx_roadmap_plans_goal_status ON roadmap_plans(goal_id, status);",
+    "CREATE INDEX IF NOT EXISTS idx_tasks_plan_skill ON roadmap_plan_tasks(plan_id, goal_skill_id);",
+    "CREATE INDEX IF NOT EXISTS idx_assessments_goal_time ON skill_assessments(goal_id, submitted_at);",
     "CREATE INDEX IF NOT EXISTS idx_notifications_student_read ON user_notifications(student_id, is_read);",
     "CREATE INDEX IF NOT EXISTS idx_opportunity_match_goal_bucket ON opportunity_match_cache(goal_id, bucket);",
     "CREATE INDEX IF NOT EXISTS idx_evidence_cache_role_family ON roadmap_evidence_cache(role_family);",
@@ -431,7 +448,8 @@ def init_roadmap_schema() -> None:
         for statement in BASE_TABLE_STATEMENTS:
             cursor.execute(statement)
 
-        _ensure_legacy_compatibility(cursor)
+        if not is_postgres_enabled():
+            _ensure_legacy_compatibility(cursor)
 
         for statement in INDEX_STATEMENTS:
             cursor.execute(statement)
