@@ -5,13 +5,11 @@ BASE_URL = "https://devpost.com/api/hackathons"
 
 
 def fetch_devpost_hackathons(pages=5):
-
-    print("🔎 Fetching Devpost hackathons via API...")
+    print("Fetching Devpost hackathons via API...")
 
     all_links = []
 
     for page in range(1, pages + 1):
-
         url = f"{BASE_URL}?page={page}"
 
         response = requests.get(url)
@@ -26,6 +24,6 @@ def fetch_devpost_hackathons(pages=5):
             if link:
                 all_links.append(link)
 
-    print(f"\n✅ Total hackathons collected: {len(all_links)}")
+    print(f"\nTotal hackathons collected: {len(all_links)}")
 
     return all_links

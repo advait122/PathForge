@@ -9,9 +9,9 @@ import time
 
 from backend.roadmap_engine.enhanced_assessment import coding_repo
 from backend.roadmap_engine.enhanced_assessment.skill_gate import requires_coding_test
-from backend.roadmap_engine.services.skill_normalizer import display_skill
+from backend.roadmap_engine.services.skill_normalizer import display_skill, normalize_skill
 from backend.roadmap_engine.storage.database import get_query_count, reset_query_count
-from backend.roadmap_engine.storage import assessment_repo, goals_repo, matching_repo, roadmap_repo, students_repo
+from backend.roadmap_engine.storage import assessment_repo, goals_repo, matching_repo, opportunities_repo, roadmap_repo, students_repo
 from backend.roadmap_engine.utils import parse_iso_deadline, utc_today
 
 logger = logging.getLogger(__name__)
@@ -418,6 +418,71 @@ def _attach_company_logos_by_bucket(bucketed: dict[str, list[dict]]) -> dict[str
     }
 
 
+def _dedupe_skill_labels(skills: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for skill in skills:
+        normalized = normalize_skill(skill)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(display_skill(normalized))
+    return ordered
+
+
+def _skill_gap_for_opportunity(opportunity: dict, current_keys: set[str]) -> list[str]:
+    candidate_skills = (
+        list(opportunity.get("core_skills") or [])
+        + list(opportunity.get("secondary_skills") or [])
+        + list(opportunity.get("skills_list") or [])
+    )
+    missing = [
+        skill
+        for skill in _dedupe_skill_labels(candidate_skills)
+        if normalize_skill(skill) not in current_keys
+    ]
+    return missing[:4]
+
+
+def _build_all_opportunities_feed(
+    opportunities: list[dict],
+    cached_matches: list[dict],
+    *,
+    current_keys: set[str],
+) -> list[dict]:
+    cached_by_opportunity = {
+        int(item.get("opportunity_id") or 0): item
+        for item in cached_matches
+        if int(item.get("opportunity_id") or 0) > 0
+    }
+
+    enriched: list[dict] = []
+    for opportunity in opportunities:
+        opportunity_type = str(opportunity.get("type") or "").strip().lower()
+        audience_type = str(opportunity.get("audience_type") or "").strip().lower()
+        student_friendly = int(opportunity.get("student_friendly") or 0) == 1
+        if not student_friendly and opportunity_type not in {"internship", "hackathon"}:
+            continue
+        if audience_type == "experienced":
+            continue
+
+        opportunity_id = int(opportunity.get("id") or 0)
+        cached = cached_by_opportunity.get(opportunity_id, {})
+        skill_gap = cached.get("missing_skills") or _skill_gap_for_opportunity(opportunity, current_keys)
+        next_skills = cached.get("next_skills") or []
+        row = {
+            **opportunity,
+            "url": opportunity.get("application_url") or opportunity.get("url") or opportunity.get("source_url") or "",
+            "match_score": float(cached.get("match_score") or 0.0),
+            "bucket": cached.get("bucket") or "",
+            "missing_skills": skill_gap,
+            "next_skills": next_skills[:4],
+        }
+        enriched.append(row)
+
+    return _attach_company_logos(enriched)
+
+
 def _test_history(goal_id: int) -> list[dict]:
     attempts = assessment_repo.list_assessments_for_goal(goal_id, submitted_only=True, limit=1500)
     history: list[dict] = []
@@ -798,6 +863,7 @@ def get_dashboard(student_id: int, student: dict | None = None) -> dict:
         {
             "goal_skills": (goals_repo.list_goal_skills, (goal["id"],), {}),
             "cached_matches": (matching_repo.list_matches_with_opportunities, (goal["id"],), {}),
+            "all_opportunities": (opportunities_repo.list_recent, (), {"limit": 250}),
             "notifications_raw": (matching_service.list_notifications, (student_id,), {}),
             "company_job_invites": (company_service.list_student_pending_company_jobs, (student_id,), {}),
             "test_history": (_test_history, (goal["id"],), {}),
@@ -805,6 +871,7 @@ def get_dashboard(student_id: int, student: dict | None = None) -> dict:
     )
     goal_skills = parallel_dashboard_reads["goal_skills"]
     cached_matches = parallel_dashboard_reads["cached_matches"]
+    all_opportunities = parallel_dashboard_reads["all_opportunities"]
     notifications_raw = parallel_dashboard_reads["notifications_raw"]
     company_job_invites = parallel_dashboard_reads["company_job_invites"]
     test_history = parallel_dashboard_reads["test_history"]
@@ -847,6 +914,13 @@ def get_dashboard(student_id: int, student: dict | None = None) -> dict:
         "_attach_company_logos",
         _attach_company_logos,
         raw_forecast,
+    )
+    all_opportunities_feed = run_step(
+        "_build_all_opportunities_feed",
+        _build_all_opportunities_feed,
+        all_opportunities,
+        cached_matches,
+        current_keys=current_keys,
     )
     notifications = run_step(
         "_humanize_notifications",
@@ -935,6 +1009,7 @@ def get_dashboard(student_id: int, student: dict | None = None) -> dict:
         "today_tasks": today_tasks,
         "upcoming_tasks": upcoming_tasks,
         "opportunities": matches,
+        "all_opportunities": all_opportunities_feed,
         "opportunity_forecast_7_days": forecast_7_days,
         "notifications": notifications,
         "active_skill": active_skill,

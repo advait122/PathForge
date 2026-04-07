@@ -2500,6 +2500,17 @@ input[type="date"].opportunities-browser-filter-input::-webkit-datetime-edit-yea
     font-weight: 700;
 }
 
+.opportunities-browser-gap {
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #556070;
+}
+
+.opportunities-browser-gap strong {
+    color: #101828;
+}
+
 .opportunities-browser-footer {
     display: flex;
     align-items: flex-end;
@@ -3329,6 +3340,13 @@ button,
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.skills-panel-item--active {
+    border-color: #a7dfb6;
+    background: #e8f8ec;
+    color: #17653a;
+    box-shadow: 0 3px 10px rgba(23, 101, 58, 0.12);
 }
 
 @media (max-width: 980px) {

@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.mentor_module.router import router as mentor_router
 from backend.mentor_module.schema import init_mentor_schema
+from backend.opportunity_engine.scheduler import create_scheduler
 from backend.roadmap_engine.storage.schema import init_roadmap_schema
 from backend.web_portal.routers.pages import router as pages_router
 
@@ -14,7 +15,10 @@ from backend.web_portal.routers.pages import router as pages_router
 async def lifespan(_: FastAPI):
     init_roadmap_schema()
     init_mentor_schema()
+    scheduler = create_scheduler()
+    scheduler.start()
     yield
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(

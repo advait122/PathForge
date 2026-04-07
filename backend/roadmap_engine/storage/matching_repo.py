@@ -101,8 +101,11 @@ def list_matches_with_opportunities(goal_id: int) -> list[dict]:
                 o.title,
                 o.company,
                 o.type,
+                o.audience_type,
+                o.student_friendly,
+                o.location,
                 o.deadline,
-                o.url
+                COALESCE(o.application_url, o.url) AS url
             FROM opportunity_match_cache m
             JOIN opportunities o ON o.id = m.opportunity_id
             WHERE m.goal_id = ?

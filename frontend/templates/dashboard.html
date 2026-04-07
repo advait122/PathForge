@@ -73,17 +73,15 @@
             </button>
             <div class="skills-deck-panel" aria-hidden="true">
                 <h3>Skill Gap</h3>
-                {% set gap = namespace(count=0) %}
                 <div class="skills-panel-grid">
                     {% for skill in data.get("goal_skills", []) %}
-                        {% if skill.get("status") != "completed" %}
-                            {% set gap.count = gap.count + 1 %}
-                            <div class="skills-panel-item">{{ skill.get("skill_name", "") }}</div>
-                        {% endif %}
+                    <div class="skills-panel-item{% if skill.get('is_active') %} skills-panel-item--active{% endif %}">
+                        {{ skill.get("skill_name", "") }}
+                    </div>
                     {% endfor %}
                 </div>
-                {% if gap.count == 0 %}
-                <p>No remaining skills. Great work.</p>
+                {% if not data.get("goal_skills") %}
+                <p>No skill-gap items yet.</p>
                 {% endif %}
             </div>
         </article>
@@ -468,16 +466,16 @@
     {% set invite_rows = data.get("company_job_invites", []) %}
     {% set eligible_rows = opp_buckets.get("eligible_now", []) %}
     {% set almost_rows = opp_buckets.get("almost_eligible", []) %}
-    {% set coming_rows = opp_buckets.get("coming_soon", []) %}
+    {% set all_rows = data.get("all_opportunities", []) %}
     {% set eligible_total = (invite_rows|length) + (eligible_rows|length) %}
     {% set almost_total = almost_rows|length %}
-    {% set coming_total = coming_rows|length %}
+    {% set all_total = all_rows|length %}
     {% if eligible_total > 0 %}
         {% set default_opportunity_tab = "eligible_now" %}
     {% elif almost_total > 0 %}
         {% set default_opportunity_tab = "almost_eligible" %}
     {% else %}
-        {% set default_opportunity_tab = "coming_soon" %}
+        {% set default_opportunity_tab = "all_opportunities" %}
     {% endif %}
     <section class="opportunities-browser" data-opportunities-browser data-default-tab="{{ default_opportunity_tab }}" data-student-id="{{ sid }}">
         <div class="opportunities-browser-tabs-wrap">
@@ -504,13 +502,13 @@
                 </button>
                 <button
                     type="button"
-                    class="opportunities-browser-tab{% if default_opportunity_tab == 'coming_soon' %} is-active{% endif %}"
-                    data-opportunities-tab="coming_soon"
+                    class="opportunities-browser-tab{% if default_opportunity_tab == 'all_opportunities' %} is-active{% endif %}"
+                    data-opportunities-tab="all_opportunities"
                     role="tab"
-                    aria-selected="{% if default_opportunity_tab == 'coming_soon' %}true{% else %}false{% endif %}"
+                    aria-selected="{% if default_opportunity_tab == 'all_opportunities' %}true{% else %}false{% endif %}"
                 >
-                    <span>Coming Soon</span>
-                    <span class="opportunities-browser-tab-count">{{ coming_total }}</span>
+                    <span>All Opportunities</span>
+                    <span class="opportunities-browser-tab-count">{{ all_total }}</span>
                 </button>
             </div>
 
@@ -707,6 +705,15 @@
                             {% endif %}
                         </div>
 
+                        <p class="opportunities-browser-gap">
+                            <strong>Skill Gap:</strong>
+                            {% if opp.get("missing_skills") %}
+                                {{ opp.get("missing_skills", [])[:4]|join(", ") }}
+                            {% else %}
+                                No immediate skill gap found.
+                            {% endif %}
+                        </p>
+
                         <div class="opportunities-browser-footer opportunities-browser-footer--single">
                             <div class="opportunities-browser-match">
                                 <span class="opportunities-browser-match-bar"><span style="width: {{ match_percent }}%;"></span></span>
@@ -786,6 +793,15 @@
                             {% endif %}
                         </div>
 
+                        <p class="opportunities-browser-gap">
+                            <strong>Skill Gap:</strong>
+                            {% if opp.get("missing_skills") %}
+                                {{ opp.get("missing_skills", [])[:4]|join(", ") }}
+                            {% else %}
+                                No immediate skill gap found.
+                            {% endif %}
+                        </p>
+
                         <div class="opportunities-browser-footer opportunities-browser-footer--single">
                             <div class="opportunities-browser-match">
                                 <span class="opportunities-browser-match-bar"><span style="width: {{ match_percent }}%;"></span></span>
@@ -807,13 +823,13 @@
             </section>
 
             <section
-                class="opportunities-browser-panel{% if default_opportunity_tab == 'coming_soon' %} is-active{% endif %}"
-                data-opportunities-panel="coming_soon"
-                aria-hidden="{% if default_opportunity_tab == 'coming_soon' %}false{% else %}true{% endif %}"
+                class="opportunities-browser-panel{% if default_opportunity_tab == 'all_opportunities' %} is-active{% endif %}"
+                data-opportunities-panel="all_opportunities"
+                aria-hidden="{% if default_opportunity_tab == 'all_opportunities' %}false{% else %}true{% endif %}"
             >
-                {% if coming_rows %}
+                {% if all_rows %}
                 <div class="opportunities-browser-grid" data-opportunities-grid>
-                    {% for opp in coming_rows %}
+                    {% for opp in all_rows %}
                     {% set match_percent = (opp.get("match_score", 0) * 100)|round|int %}
                     <article
                         class="opportunities-browser-card{% if opp.get('url') %} opportunities-browser-card--clickable{% endif %}"
@@ -839,7 +855,7 @@
                                 <span class="opportunities-browser-logo-fallback">{{ (opp.get("company", "O")[:1] or "O")|upper }}</span>
                                 {% endif %}
                             </div>
-                            <span class="opportunities-browser-status is-coming">Coming Soon</span>
+                            <span class="opportunities-browser-status is-coming">Opportunity</span>
                         </div>
 
                         <div class="opportunities-browser-card-copy">
@@ -854,16 +870,28 @@
                         </div>
 
                         <div class="opportunities-browser-tags">
-                            {% if opp.get("missing_skills") %}
-                                {% for skill in opp.get("missing_skills", [])[:3] %}
+                            {% if opp.get("core_skills") %}
+                                {% for skill in opp.get("core_skills", [])[:3] %}
+                                <span class="opportunities-browser-tag">{{ skill }}</span>
+                                {% endfor %}
+                            {% elif opp.get("skills_list") %}
+                                {% for skill in opp.get("skills_list", [])[:3] %}
                                 <span class="opportunities-browser-tag">{{ skill }}</span>
                                 {% endfor %}
                             {% else %}
-                                {% for skill in opp.get("next_skills", [])[:3] %}
-                                <span class="opportunities-browser-tag">{{ skill }}</span>
-                                {% endfor %}
+                                <span class="opportunities-browser-tag">{{ opp.get("work_mode", "Any") }}</span>
+                                <span class="opportunities-browser-tag">{{ opp.get("type", "opportunity")|title }}</span>
                             {% endif %}
                         </div>
+
+                        <p class="opportunities-browser-gap">
+                            <strong>Skill Gap:</strong>
+                            {% if opp.get("missing_skills") %}
+                                {{ opp.get("missing_skills", [])[:4]|join(", ") }}
+                            {% else %}
+                                No immediate skill gap found.
+                            {% endif %}
+                        </p>
 
                         <div class="opportunities-browser-footer opportunities-browser-footer--single">
                             <div class="opportunities-browser-match">
@@ -880,7 +908,7 @@
                 </div>
                 {% else %}
                 <div class="opportunities-browser-empty">
-                    <p>No coming-soon opportunities right now.</p>
+                    <p>No opportunities available right now.</p>
                 </div>
                 {% endif %}
             </section>

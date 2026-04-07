@@ -126,11 +126,29 @@ BASE_TABLE_STATEMENTS = [
         title TEXT,
         company TEXT,
         type TEXT,
+        audience_type TEXT,
+        student_friendly INTEGER NOT NULL DEFAULT 0,
+        experience_min INTEGER NOT NULL DEFAULT 0,
+        experience_max INTEGER NOT NULL DEFAULT 0,
         deadline TEXT,
         skills TEXT,
+        core_skills_json TEXT,
+        secondary_skills_json TEXT,
+        normalized_skills_json TEXT,
+        location TEXT,
+        cgpa_requirement REAL,
+        backlog_allowed INTEGER,
+        description_summary TEXT,
         url TEXT UNIQUE,
+        application_url TEXT,
         source TEXT,
+        source_url TEXT,
         content_hash TEXT,
+        quality_score REAL NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        agent_trace_json TEXT,
+        fetched_at TEXT,
+        last_validated_at TEXT,
         last_updated TEXT
     );
     """,
@@ -440,6 +458,31 @@ def _ensure_legacy_compatibility(cursor) -> None:
     # Drop obsolete tables from the previous architecture.
     for table_name in LEGACY_TABLES_TO_DROP:
         cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+    opportunity_columns = _table_columns(cursor, "opportunities")
+    opportunity_additions = {
+        "audience_type": "TEXT",
+        "student_friendly": "INTEGER NOT NULL DEFAULT 0",
+        "experience_min": "INTEGER NOT NULL DEFAULT 0",
+        "experience_max": "INTEGER NOT NULL DEFAULT 0",
+        "core_skills_json": "TEXT",
+        "secondary_skills_json": "TEXT",
+        "normalized_skills_json": "TEXT",
+        "location": "TEXT",
+        "cgpa_requirement": "REAL",
+        "backlog_allowed": "INTEGER",
+        "description_summary": "TEXT",
+        "application_url": "TEXT",
+        "source_url": "TEXT",
+        "quality_score": "REAL NOT NULL DEFAULT 0",
+        "is_active": "INTEGER NOT NULL DEFAULT 1",
+        "agent_trace_json": "TEXT",
+        "fetched_at": "TEXT",
+        "last_validated_at": "TEXT",
+    }
+    for column_name, definition in opportunity_additions.items():
+        if column_name not in opportunity_columns:
+            cursor.execute(f"ALTER TABLE opportunities ADD COLUMN {column_name} {definition}")
 
 
 def init_roadmap_schema() -> None:

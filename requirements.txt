@@ -1,5 +1,6 @@
 ﻿annotated-types==0.7.0
 anyio==4.12.1
+apscheduler==3.10.4
 beautifulsoup4==4.14.3
 certifi==2026.1.4
 cffi==2.0.0
