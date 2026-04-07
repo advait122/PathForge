@@ -15,12 +15,20 @@ def _goal_skill_completion_forecast(goal_id: int, days: int) -> dict[str, str]:
 
     forecast: dict[str, str] = {}
     goal_skills = goals_repo.list_goal_skills(goal_id)
+    all_tasks = roadmap_repo.list_tasks(plan["id"])
+    tasks_by_skill: dict[int, list[dict]] = {}
+    for task in all_tasks:
+        skill_id = int(task.get("goal_skill_id") or 0)
+        if skill_id <= 0:
+            continue
+        tasks_by_skill.setdefault(skill_id, []).append(task)
+
     for skill in goal_skills:
         if skill["status"] == "completed":
             forecast[skill["normalized_skill"]] = today.isoformat()
             continue
 
-        tasks = roadmap_repo.list_tasks_for_skill(plan["id"], skill["id"])
+        tasks = tasks_by_skill.get(int(skill["id"]), [])
         if not tasks:
             continue
 
@@ -118,6 +126,36 @@ def _classify_match(required_keys: list[str], current_keys: set[str], next_keys:
         return "almost_eligible", missing
 
     return "coming_soon", missing
+
+
+def _canonical_cache_row(row: dict) -> dict:
+    return {
+        "bucket": row.get("bucket"),
+        "match_score": round(float(row.get("match_score") or 0.0), 8),
+        "required_skills_count": int(row.get("required_skills_count") or 0),
+        "matched_skills_count": int(row.get("matched_skills_count") or 0),
+        "missing_skills": list(row.get("missing_skills") or []),
+        "next_skills": list(row.get("next_skills") or []),
+        "eligible_now": 1 if row.get("eligible_now") else 0,
+    }
+
+
+def _cache_payload_changed(previous: dict[int, dict], computed: list[dict]) -> bool:
+    if len(previous) != len(computed):
+        return True
+
+    computed_map = {
+        int(item.get("opportunity_id") or 0): _canonical_cache_row(item)
+        for item in computed
+    }
+    if len(computed_map) != len(computed):
+        return True
+
+    previous_map = {
+        int(opportunity_id): _canonical_cache_row(row)
+        for opportunity_id, row in previous.items()
+    }
+    return previous_map != computed_map
 
 
 def refresh_opportunity_matches(student_id: int) -> dict:
@@ -229,7 +267,8 @@ def refresh_opportunity_matches(student_id: int) -> dict:
         }
         for item in computed
     ]
-    matching_repo.replace_goal_matches(goal["id"], stripped)
+    if _cache_payload_changed(previous, stripped):
+        matching_repo.replace_goal_matches(goal["id"], stripped)
 
     return bucketed_matches_for_student(student_id)
 

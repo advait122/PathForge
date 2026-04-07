@@ -1,12 +1,9 @@
-import sqlite3
-from pathlib import Path
 from datetime import datetime
-
-DB_PATH = Path("opportunities.db")
+from backend.roadmap_engine.storage.database import get_connection as shared_get_connection
 
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    return shared_get_connection()
 
 
 def init_db():

@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import os
 
 from backend.roadmap_engine.storage import goals_repo, playlist_repo, roadmap_repo, students_repo
 
@@ -223,8 +224,11 @@ def _build_video_chunks(videos: list[dict], daily_budget_minutes: int) -> list[d
 def get_or_create_recommendations(goal_id: int, goal_skill_id: int, skill_name: str) -> tuple[list[dict], str | None]:
     cached = playlist_repo.list_skill_recommendations(goal_id, goal_skill_id)
     if cached:
-        refreshed = [_hydrate_playlist_summary(item) for item in cached[:3]]
-        return refreshed, None
+        return cached[:3], None
+
+    # Avoid repeated slow external calls when YouTube credentials are not configured.
+    if not os.getenv("YOUTUBE_API_KEY", "").strip():
+        return [], "YOUTUBE_API_KEY not set. Please set it as an environment variable."
 
     generated, error = _fetch_recommendations_from_youtube(skill_name, limit=3)
     if generated:

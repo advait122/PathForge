@@ -29,6 +29,7 @@ openai==2.21.0
 playwright==1.58.0
 proto-plus==1.27.1
 protobuf==5.29.6
+psycopg2-binary
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
 pycparser==3.0

@@ -3,8 +3,11 @@
 Run from project root:
 
 ```powershell
+$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require"  # optional, for PostgreSQL/Supabase
 uvicorn backend.web_portal.main:app --reload
 ```
+
+If `DATABASE_URL` is not set, the backend falls back to local SQLite (`opportunities.db`).
 
 Open:
 

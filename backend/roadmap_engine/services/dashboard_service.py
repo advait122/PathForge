@@ -1,11 +1,32 @@
 import ast
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 import json
+import logging
+import os
 import re
+import time
 
 from backend.roadmap_engine.enhanced_assessment import coding_repo
 from backend.roadmap_engine.enhanced_assessment.skill_gate import requires_coding_test
-from backend.roadmap_engine.storage import assessment_repo, goals_repo, roadmap_repo, students_repo
+from backend.roadmap_engine.services.skill_normalizer import display_skill
+from backend.roadmap_engine.storage.database import get_query_count, reset_query_count
+from backend.roadmap_engine.storage import assessment_repo, goals_repo, matching_repo, roadmap_repo, students_repo
 from backend.roadmap_engine.utils import parse_iso_deadline, utc_today
+
+logger = logging.getLogger(__name__)
+
+
+def _dashboard_perf_enabled() -> bool:
+    raw = os.getenv("DASHBOARD_PERF_LOG", "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _dashboard_perf_log(message: str) -> None:
+    if _dashboard_perf_enabled():
+        text = f"[perf][dashboard] {message}"
+        print(text)
+        logger.info(text)
 
 
 def _assert_student(student_id: int) -> dict:
@@ -437,6 +458,9 @@ def _coding_test_items(
     goal_skills: list[dict],
     ready_for_test_ids: set[int],
 ) -> list[dict]:
+    if not ready_for_test_ids:
+        return []
+
     attempts = assessment_repo.list_assessments_for_goal(goal_id, submitted_only=True, limit=2000)
     latest_by_skill: dict[int, dict] = {}
     for row in attempts:
@@ -444,6 +468,32 @@ def _coding_test_items(
         if skill_id <= 0:
             continue
         latest_by_skill[skill_id] = row
+
+    relevant_assessment_ids: list[int] = []
+    for skill in goal_skills:
+        skill_id = int(skill.get("id") or 0)
+        if skill_id <= 0 or skill_id not in ready_for_test_ids:
+            continue
+        if str(skill.get("status", "")).strip().lower() == "completed":
+            continue
+        skill_name = str(skill.get("skill_name", "")).strip()
+        if not requires_coding_test(skill_name):
+            continue
+        latest_mcq = latest_by_skill.get(skill_id)
+        if latest_mcq is None:
+            continue
+        assessment_id = int(latest_mcq.get("id") or 0)
+        if assessment_id > 0:
+            relevant_assessment_ids.append(assessment_id)
+
+    coding_by_assessment: dict[int, dict] = {}
+    if relevant_assessment_ids:
+        try:
+            coding_by_assessment = coding_repo.list_coding_assessments_by_assessment_ids(
+                relevant_assessment_ids
+            )
+        except Exception:
+            coding_by_assessment = {}
 
     items: list[dict] = []
     for skill in goal_skills:
@@ -463,10 +513,7 @@ def _coding_test_items(
 
         coding_record = None
         if latest_mcq is not None:
-            try:
-                coding_record = coding_repo.get_coding_assessment(int(latest_mcq["id"]))
-            except Exception:
-                coding_record = None
+            coding_record = coding_by_assessment.get(int(latest_mcq.get("id") or 0))
 
         coding_passed = bool(coding_record and coding_record.get("passed") == 1)
         if coding_passed:
@@ -485,26 +532,258 @@ def _coding_test_items(
     return items
 
 
-def get_dashboard(student_id: int) -> dict:
-    student = _assert_student(student_id)
-    goal, plan = _active_goal_and_plan(student_id)
-    profile_skills = students_repo.list_student_skills(student_id)
+def _bucket_matches(matches: list[dict]) -> dict[str, list[dict]]:
+    return {
+        "eligible_now": [row for row in matches if row.get("bucket") == "eligible_now"],
+        "almost_eligible": [row for row in matches if row.get("bucket") == "almost_eligible"],
+        "coming_soon": [row for row in matches if row.get("bucket") == "coming_soon"],
+    }
+
+
+def _goal_skill_completion_forecast_from_tasks(
+    goal_skills: list[dict],
+    all_tasks: list[dict],
+    *,
+    today,
+    days: int,
+) -> dict[str, str]:
+    horizon = today + timedelta(days=days)
+
+    tasks_by_skill: dict[int, list[dict]] = {}
+    for task in all_tasks:
+        skill_id = int(task.get("goal_skill_id") or 0)
+        if skill_id <= 0:
+            continue
+        tasks_by_skill.setdefault(skill_id, []).append(task)
+
+    forecast: dict[str, str] = {}
+    for skill in goal_skills:
+        normalized_skill = str(skill.get("normalized_skill") or "").strip()
+        if not normalized_skill:
+            continue
+
+        if str(skill.get("status") or "").strip().lower() == "completed":
+            forecast[normalized_skill] = today.isoformat()
+            continue
+
+        skill_id = int(skill.get("id") or 0)
+        if skill_id <= 0:
+            continue
+
+        tasks = tasks_by_skill.get(skill_id, [])
+        if not tasks:
+            continue
+
+        incomplete_dates = []
+        for task in tasks:
+            if task.get("is_completed") == 1:
+                continue
+            parsed = parse_iso_deadline(task.get("task_date"))
+            if parsed is not None:
+                incomplete_dates.append(parsed)
+
+        if not incomplete_dates:
+            forecast[normalized_skill] = today.isoformat()
+            continue
+
+        latest_incomplete = max(incomplete_dates)
+        if latest_incomplete <= horizon:
+            forecast[normalized_skill] = latest_incomplete.isoformat()
+
+    return forecast
+
+
+def _forecast_eligible_from_cached_matches(
+    matches: list[dict],
+    *,
+    current_keys: set[str],
+    goal_skills: list[dict],
+    all_tasks: list[dict],
+    days: int,
+) -> list[dict]:
+    today = utc_today()
+    completion_forecast = _goal_skill_completion_forecast_from_tasks(
+        goal_skills,
+        all_tasks,
+        today=today,
+        days=days,
+    )
+    projected_keys = set(current_keys) | set(completion_forecast.keys())
+
+    display_lookup = {
+        str(row.get("normalized_skill") or "").strip(): str(row.get("skill_name") or "").strip()
+        for row in goal_skills
+    }
+
+    forecasted: list[dict] = []
+    for item in matches:
+        if item.get("bucket") == "eligible_now":
+            continue
+
+        missing = item.get("missing_skills", [])
+        if not isinstance(missing, list) or not missing:
+            continue
+
+        if not all(skill in projected_keys for skill in missing):
+            continue
+
+        unlock_dates = [completion_forecast.get(skill, today.isoformat()) for skill in missing]
+        predicted_date = max(unlock_dates) if unlock_dates else today.isoformat()
+
+        forecasted.append(
+            {
+                "opportunity_id": item.get("opportunity_id"),
+                "title": item.get("title"),
+                "company": item.get("company"),
+                "type": item.get("type"),
+                "deadline": item.get("deadline"),
+                "url": item.get("url"),
+                "match_score": item.get("match_score", 0.0),
+                "predicted_eligible_date": predicted_date,
+                "skills_to_unlock": [
+                    display_lookup.get(skill, display_skill(skill))
+                    for skill in missing
+                ],
+            }
+        )
+
+    forecasted.sort(
+        key=lambda row: (
+            row["predicted_eligible_date"],
+            -(row.get("match_score", 0.0) or 0.0),
+        )
+    )
+    return forecasted[:25]
+
+
+def get_dashboard(student_id: int, student: dict | None = None) -> dict:
+    dashboard_started = time.perf_counter()
+    reset_query_count()
+    _dashboard_perf_log(f"START student_id={student_id}")
+    threaded_query_count = 0
+
+    def effective_query_count() -> int:
+        return int(get_query_count() + threaded_query_count)
+
+    def run_step(step_name: str, fn, *args, **kwargs):
+        step_started = time.perf_counter()
+        query_before = effective_query_count()
+        _dashboard_perf_log(f"{step_name} start q={query_before}")
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as error:
+            elapsed = time.perf_counter() - step_started
+            query_after = effective_query_count()
+            _dashboard_perf_log(
+                f"{step_name} error {elapsed:.4f}s q+{query_after - query_before} total_q={query_after} err={error}"
+            )
+            raise
+        elapsed = time.perf_counter() - step_started
+        query_after = effective_query_count()
+        _dashboard_perf_log(
+            f"{step_name} done {elapsed:.4f}s q+{query_after - query_before} total_q={query_after}"
+        )
+        return result
+
+    def _threaded_db_call(fn, args: tuple, kwargs: dict):
+        # Each worker maintains its own query counter context.
+        reset_query_count()
+        result = fn(*args, **kwargs)
+        return result, get_query_count()
+
+    def run_parallel(
+        step_name: str,
+        calls: dict[str, tuple],
+    ) -> dict[str, object]:
+        nonlocal threaded_query_count
+
+        step_started = time.perf_counter()
+        query_before = effective_query_count()
+        _dashboard_perf_log(f"{step_name} start q={query_before}")
+
+        if not calls:
+            _dashboard_perf_log(f"{step_name} done 0.0000s q+0 total_q={query_before}")
+            return {}
+
+        results: dict[str, object] = {}
+        try:
+            with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+                futures = {
+                    key: executor.submit(_threaded_db_call, fn, args, kwargs)
+                    for key, (fn, args, kwargs) in calls.items()
+                }
+                for key, future in futures.items():
+                    value, thread_queries = future.result()
+                    results[key] = value
+                    query_delta = int(thread_queries or 0)
+                    threaded_query_count += query_delta
+                    _dashboard_perf_log(f"{step_name}:{key} done q+{query_delta}")
+        except Exception as error:
+            elapsed = time.perf_counter() - step_started
+            query_after = effective_query_count()
+            _dashboard_perf_log(
+                f"{step_name} error {elapsed:.4f}s q+{query_after - query_before} total_q={query_after} err={error}"
+            )
+            raise
+
+        elapsed = time.perf_counter() - step_started
+        query_after = effective_query_count()
+        _dashboard_perf_log(
+            f"{step_name} done {elapsed:.4f}s q+{query_after - query_before} total_q={query_after}"
+        )
+        return results
+
+    if student is None:
+        student = run_step("_assert_student", _assert_student, student_id)
+    goal, plan = run_step("_active_goal_and_plan", _active_goal_and_plan, student_id)
+    today = utc_today()
+    initial_reads = run_parallel(
+        "parallel_initial_reads",
+        {
+            "profile_skills": (students_repo.list_student_skills, (student_id,), {}),
+            "all_tasks": (roadmap_repo.list_tasks, (plan["id"],), {}),
+        },
+    )
+    profile_skills = initial_reads["profile_skills"]
+    all_tasks = initial_reads["all_tasks"]
 
     from backend.roadmap_engine.services import roadmap_adjustment_service
 
-    replan_info = roadmap_adjustment_service.auto_replan_if_behind(student_id)
-    if not replan_info.get("applied"):
-        replan_info = roadmap_adjustment_service.auto_pull_tasks_forward_if_ready(student_id)
-    if replan_info.get("applied"):
-        plan = roadmap_repo.get_active_plan(goal["id"]) or plan
+    incomplete_tasks = [task for task in all_tasks if task.get("is_completed") != 1]
+    has_overdue_incomplete = False
+    first_incomplete_date = None
+    for task in incomplete_tasks:
+        parsed_date = parse_iso_deadline(task.get("task_date"))
+        if parsed_date is None:
+            continue
+        if first_incomplete_date is None:
+            first_incomplete_date = parsed_date
+        if parsed_date < today:
+            has_overdue_incomplete = True
+            break
 
-    today = utc_today()
-    months_remaining = _goal_months_remaining(goal.get("target_end_date"), today)
-    goal_target_date_display = _format_goal_target_date(goal.get("target_end_date"))
-    all_tasks = roadmap_repo.list_tasks(plan["id"])
-    all_window_tasks = roadmap_repo.list_tasks(plan["id"], today.isoformat(), None)
-    goal_skills = goals_repo.list_goal_skills(goal["id"])
-    active_skill = _active_skill(goal_skills)
+    if not incomplete_tasks:
+        replan_info: dict = {"applied": False, "reason": "no_incomplete_tasks"}
+    elif has_overdue_incomplete:
+        replan_info = run_step(
+            "auto_replan_if_behind",
+            roadmap_adjustment_service.auto_replan_if_behind,
+            student_id,
+        )
+    elif first_incomplete_date is not None and first_incomplete_date > today:
+        replan_info = run_step(
+            "auto_pull_tasks_forward_if_ready",
+            roadmap_adjustment_service.auto_pull_tasks_forward_if_ready,
+            student_id,
+        )
+    else:
+        replan_info = {"applied": False, "reason": "already_available"}
+
+    if replan_info.get("applied"):
+        plan = run_step("reload_active_plan", roadmap_repo.get_active_plan, goal["id"]) or plan
+        all_tasks = run_step("reload_tasks_all", roadmap_repo.list_tasks, plan["id"])
+
+    all_window_tasks = [task for task in all_tasks if str(task.get("task_date") or "") >= today.isoformat()]
 
     # lazy imports to avoid circular references
     from backend.roadmap_engine.services import (
@@ -514,13 +793,66 @@ def get_dashboard(student_id: int) -> dict:
         youtube_learning_service,
     )
 
-    matches = _attach_company_logos_by_bucket(
-        matching_service.refresh_opportunity_matches(student_id)
+    parallel_dashboard_reads = run_parallel(
+        "parallel_dashboard_reads",
+        {
+            "goal_skills": (goals_repo.list_goal_skills, (goal["id"],), {}),
+            "cached_matches": (matching_repo.list_matches_with_opportunities, (goal["id"],), {}),
+            "notifications_raw": (matching_service.list_notifications, (student_id,), {}),
+            "company_job_invites": (company_service.list_student_pending_company_jobs, (student_id,), {}),
+            "test_history": (_test_history, (goal["id"],), {}),
+        },
     )
-    forecast_7_days = _attach_company_logos(
-        matching_service.forecast_eligible_in_days(student_id, days=7)
+    goal_skills = parallel_dashboard_reads["goal_skills"]
+    cached_matches = parallel_dashboard_reads["cached_matches"]
+    notifications_raw = parallel_dashboard_reads["notifications_raw"]
+    company_job_invites = parallel_dashboard_reads["company_job_invites"]
+    test_history = parallel_dashboard_reads["test_history"]
+
+    active_skill = _active_skill(goal_skills)
+    months_remaining = _goal_months_remaining(goal.get("target_end_date"), today)
+    goal_target_date_display = _format_goal_target_date(goal.get("target_end_date"))
+
+    # Dashboard request path stays read-only: use cached matches only.
+    bucketed_matches = _bucket_matches(cached_matches)
+    matches_for_forecast = cached_matches
+
+    matches = run_step(
+        "_attach_company_logos_by_bucket",
+        _attach_company_logos_by_bucket,
+        bucketed_matches,
     )
-    notifications = _humanize_notifications(matching_service.list_notifications(student_id))
+
+    current_keys = {
+        str(item.get("normalized_skill") or "").strip()
+        for item in profile_skills
+        if str(item.get("normalized_skill") or "").strip()
+    }
+    for row in goal_skills:
+        if str(row.get("status") or "").strip().lower() == "completed":
+            normalized = str(row.get("normalized_skill") or "").strip()
+            if normalized:
+                current_keys.add(normalized)
+
+    raw_forecast = run_step(
+        "forecast_eligible_from_cached_matches",
+        _forecast_eligible_from_cached_matches,
+        matches_for_forecast,
+        current_keys=current_keys,
+        goal_skills=goal_skills,
+        all_tasks=all_tasks,
+        days=7,
+    )
+    forecast_7_days = run_step(
+        "_attach_company_logos",
+        _attach_company_logos,
+        raw_forecast,
+    )
+    notifications = run_step(
+        "_humanize_notifications",
+        _humanize_notifications,
+        notifications_raw,
+    )
 
     selected_playlist = None
     recommendations = []
@@ -528,35 +860,59 @@ def get_dashboard(student_id: int) -> dict:
     ready_for_test_ids: set[int] = set()
 
     if active_skill:
-        recommendations, playlist_recommendation_error = youtube_learning_service.get_or_create_recommendations(
+        recommendations, playlist_recommendation_error = run_step(
+            "get_or_create_recommendations",
+            youtube_learning_service.get_or_create_recommendations,
             goal_id=goal["id"],
             goal_skill_id=active_skill["id"],
             skill_name=active_skill["skill_name"],
         )
-        recommendations = _clean_recommendation_summaries(recommendations)
-        selected_playlist = youtube_learning_service.get_selected_playlist(
+        recommendations = run_step(
+            "_clean_recommendation_summaries",
+            _clean_recommendation_summaries,
+            recommendations,
+        )
+        selected_playlist = run_step(
+            "get_selected_playlist",
+            youtube_learning_service.get_selected_playlist,
             goal_id=goal["id"],
             goal_skill_id=active_skill["id"],
         )
-        active_tasks = roadmap_repo.list_tasks_for_skill(plan["id"], active_skill["id"])
+        active_tasks = [
+            task for task in all_tasks
+            if task.get("goal_skill_id") == active_skill["id"]
+        ]
         if selected_playlist and active_tasks and all(task["is_completed"] == 1 for task in active_tasks):
             ready_for_test_ids.add(active_skill["id"])
 
-    chatbot_panel = chatbot_service.get_chat_panel(student_id)
-    company_job_invites = company_service.list_student_pending_company_jobs(student_id)
-    test_history = _test_history(goal["id"])
-    coding_tests = _coding_test_items(goal["id"], goal_skills, ready_for_test_ids)
+    chatbot_panel = run_step(
+        "get_chat_panel_from_preloaded",
+        chatbot_service.get_chat_panel_from_preloaded,
+        student_id=student_id,
+        goal=goal,
+        active_skill=active_skill,
+        selected_playlist=selected_playlist,
+    )
+    coding_tests = run_step("_coding_test_items", _coding_test_items, goal["id"], goal_skills, ready_for_test_ids)
 
-    today_tasks = [
-        task for task in all_window_tasks
-        if task["task_date"] == today.isoformat() and (active_skill is None or task["goal_skill_id"] == active_skill["id"])
-    ]
-    upcoming_tasks = [
-        task for task in all_window_tasks
-        if active_skill is None or task["goal_skill_id"] == active_skill["id"]
-    ]
+    today_tasks = run_step(
+        "build_today_tasks",
+        lambda: [
+            task
+            for task in all_window_tasks
+            if task["task_date"] == today.isoformat()
+            and (active_skill is None or task["goal_skill_id"] == active_skill["id"])
+        ],
+    )
+    upcoming_tasks = run_step(
+        "build_upcoming_tasks",
+        lambda: [
+            task for task in all_window_tasks
+            if active_skill is None or task["goal_skill_id"] == active_skill["id"]
+        ],
+    )
 
-    return {
+    payload = {
         "student": student,
         "goal": goal,
         "goal_months_remaining": months_remaining,
@@ -590,6 +946,11 @@ def get_dashboard(student_id: int) -> dict:
         "test_history": test_history,
         "coding_tests": coding_tests,
     }
+
+    _dashboard_perf_log(
+        f"TOTAL {time.perf_counter() - dashboard_started:.4f}s total_q={effective_query_count()}"
+    )
+    return payload
 
 
 def set_task_completion(student_id: int, task_id: int, completed: bool) -> None:

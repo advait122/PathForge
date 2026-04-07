@@ -218,9 +218,41 @@ def get_chat_panel(student_id: int, limit: int = 20) -> dict:
             "messages": [],
         }
 
-    goal = context["goal"]
-    active_skill = context["active_skill"]
-    selected_playlist = context["selected_playlist"]
+    return get_chat_panel_from_preloaded(
+        student_id=student_id,
+        goal=context["goal"],
+        active_skill=context["active_skill"],
+        selected_playlist=context["selected_playlist"],
+        limit=limit,
+    )
+
+
+def get_chat_panel_from_preloaded(
+    *,
+    student_id: int,
+    goal: dict,
+    active_skill: dict | None,
+    selected_playlist: dict | None,
+    limit: int = 20,
+) -> dict:
+    if active_skill is None:
+        return {
+            "enabled": False,
+            "reason": "All skills are completed. No active playlist chat needed.",
+            "active_skill": None,
+            "selected_playlist": None,
+            "messages": [],
+        }
+
+    if selected_playlist is None:
+        return {
+            "enabled": False,
+            "reason": f"Select one playlist for {active_skill['skill_name']} to enable chatbot.",
+            "active_skill": active_skill,
+            "selected_playlist": None,
+            "messages": [],
+        }
+
     session = chat_repo.get_session(
         student_id=student_id,
         goal_id=goal["id"],
