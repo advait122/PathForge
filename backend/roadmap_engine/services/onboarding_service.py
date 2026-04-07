@@ -14,7 +14,7 @@ from backend.roadmap_engine.constants import (
     YEAR_OPTIONS,
 )
 from backend.roadmap_engine.services.agent_orchestrator_service import generate_verified_roadmap
-from backend.roadmap_engine.services.skill_normalizer import deduplicate_skills, normalize_skill
+from backend.roadmap_engine.services.skill_normalizer import deduplicate_skills, display_skill, normalize_skill
 from backend.roadmap_engine.storage import goals_repo, roadmap_repo, students_repo
 from backend.roadmap_engine.utils import end_date_from_months, parse_custom_skills, utc_today
 
@@ -247,20 +247,6 @@ def create_student_goal_plan(
     if students_repo.get_student_account_by_username(login_name):
         raise ValueError("Name already exists. Please login instead.")
 
-    student_id = students_repo.create_student(
-        name=cleaned_name,
-        branch=branch,
-        current_year=current_year,
-        weekly_study_hours=weekly_study_hours or DEFAULT_WEEKLY_STUDY_HOURS,
-        cgpa=cgpa_value,
-        has_active_backlog=bool(active_backlog),
-    )
-    students_repo.create_student_account(
-        student_id=student_id,
-        username=login_name,
-        password_hash=_hash_password(password),
-    )
-
     predefined_normalized = {normalize_skill(skill) for skill in PREDEFINED_SKILLS}
     skill_rows = []
     for skill in all_known_skills:
@@ -274,16 +260,51 @@ def create_student_goal_plan(
                 "skill_source": "predefined" if normalized in predefined_normalized else "custom",
             }
         )
-    students_repo.replace_student_skills(student_id, skill_rows)
 
     requirements = generate_verified_roadmap(
         goal_text=cleaned_goal_text,
         target_duration_months=target_duration_months,
         known_skills=[row["skill_name"] for row in skill_rows],
-        student_id=student_id,
+        weekly_study_hours=weekly_study_hours,
     )
     goal_parse = requirements.get("goal_parse", {})
-    required_skills = _normalize_required_skills(requirements.get("required_skills", []))
+    if not bool(goal_parse.get("is_valid", True)):
+        raise ValueError(goal_parse.get("rejection_reason") or "Please enter a clearer goal.")
+
+    student_id = students_repo.create_student(
+        name=cleaned_name,
+        branch=branch,
+        current_year=current_year,
+        weekly_study_hours=weekly_study_hours or DEFAULT_WEEKLY_STUDY_HOURS,
+        cgpa=cgpa_value,
+        has_active_backlog=bool(active_backlog),
+    )
+    students_repo.create_student_account(
+        student_id=student_id,
+        username=login_name,
+        password_hash=_hash_password(password),
+    )
+    students_repo.replace_student_skills(student_id, skill_rows)
+    selected_skill_details = requirements.get("selected_skill_details", [])
+    if selected_skill_details:
+        required_skills = []
+        seen: set[str] = set()
+        for skill in selected_skill_details:
+            normalized = normalize_skill(str(skill.get("normalized_skill") or skill.get("skill_name") or ""))
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            required_skills.append(
+                {
+                    "skill_name": str(skill.get("skill_name") or display_skill(normalized)),
+                    "normalized_skill": normalized,
+                    "priority": int(skill.get("priority") or (len(required_skills) + 1)),
+                    "estimated_hours": float(skill.get("estimated_hours") or _estimate_skill_hours(normalized)),
+                    "skill_source": str(skill.get("skill_source") or "goal_requirements"),
+                }
+            )
+    else:
+        required_skills = _normalize_required_skills(requirements.get("required_skills", []))
     known_skill_keys = {row["normalized_skill"] for row in skill_rows}
     missing_skill_specs = [
         skill for skill in required_skills if skill["normalized_skill"] not in known_skill_keys
@@ -312,6 +333,7 @@ def create_student_goal_plan(
             "validation_result": requirements.get("validation_result", {}),
             "verification_result": requirements.get("verification_result", {}),
             "agent_trace_id": requirements.get("agent_trace_id"),
+            "selected_skill_details": required_skills,
         },
     )
     goals_repo.replace_goal_skills(goal_id, missing_skill_specs)

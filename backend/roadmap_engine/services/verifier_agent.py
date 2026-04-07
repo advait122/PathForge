@@ -4,6 +4,7 @@ from backend.roadmap_engine.services.skill_normalizer import normalize_skill
 
 def run(*, role_intent: dict, planning_result: dict, evidence_summary: dict) -> VerificationResult:
     role_family = str(role_intent.get("normalized_role_family") or "software_engineering")
+    target_duration_months = int(role_intent.get("target_duration_months", 6) or 6)
     required_skills = [str(skill) for skill in planning_result.get("required_skills", [])]
     validation_result = planning_result.get("validation_result", {}) or {}
 
@@ -11,7 +12,8 @@ def run(*, role_intent: dict, planning_result: dict, evidence_summary: dict) -> 
     issues: list[str] = []
     notes: list[str] = []
 
-    if len(required_skills) < 4:
+    minimum_skill_count = 3 if target_duration_months <= 2 else 4
+    if len(required_skills) < minimum_skill_count:
         issues.append("Roadmap produced too few required skills to be useful.")
 
     if role_family == "backend":

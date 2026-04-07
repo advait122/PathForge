@@ -7,6 +7,7 @@ from backend.roadmap_engine.services import (
 )
 from backend.roadmap_engine.services.agent_models import AgentRunTrace
 from backend.roadmap_engine.services.agent_models import PlanningResult, VerificationResult
+from backend.roadmap_engine.services.crewai_roadmap_service import generate_crewai_verified_roadmap
 from backend.roadmap_engine.storage import agent_trace_repo
 
 
@@ -55,9 +56,28 @@ def generate_verified_roadmap(
     goal_text: str,
     target_duration_months: int,
     known_skills: list[str] | None = None,
+    weekly_study_hours: int | None = None,
     student_id: int | None = None,
 ) -> dict:
     known_skills = known_skills or []
+
+    try:
+        crew_result = generate_crewai_verified_roadmap(
+            goal_text=goal_text,
+            target_duration_months=target_duration_months,
+            known_skills=known_skills,
+            weekly_study_hours=weekly_study_hours,
+        )
+        trace_id = agent_trace_repo.create_agent_run(
+            student_id=student_id,
+            goal_text=goal_text,
+            status="passed" if crew_result.get("verification_result", {}).get("passed") else "flagged",
+            trace=crew_result.get("agent_trace", {}),
+        )
+        crew_result["agent_trace_id"] = trace_id
+        return crew_result
+    except Exception:
+        pass
 
     role_intent_result = role_intent_agent.run(
         goal_text=goal_text,
