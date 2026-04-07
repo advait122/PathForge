@@ -7,96 +7,80 @@
     <link rel="stylesheet" href="/static/css/company_job_step2.css?v={{ asset_version|default('1') }}">
 </head>
 <body>
+{% set saved_description = draft.get('job_description', '') if draft else '' %}
+{% set allow_backlog = draft.get('allow_active_backlog', True) if draft else True %}
 <header class="ribbon">
     <span class="ribbon-title">PathForge.</span>
     <a class="ribbon-action" href="/company/dashboard">Company Dashboard</a>
 </header>
 
+{% if error %}
+<p class="status-banner status-error company-job-alert" role="alert" data-auto-dismiss-alert>{{ error }}</p>
+{% endif %}
+
 <main class="job-create-main">
-    <header class="job-page-head">
-        <h1>Create Job</h1>
-        <p>Step 2 of 2. Finalize screening settings for {{ company.get('username', 'Company') }}.</p>
-    </header>
-
-    {% if error %}
-    <div class="status-banner status-error">{{ error }}</div>
-    {% endif %}
-
-    <section class="job-step-strip" aria-label="Job creation overview">
-        <div class="job-step-tile">
-            <span>Step</span>
-            <strong>2 of 2</strong>
-        </div>
-        <div class="job-step-tile">
-            <span>Required Skills</span>
-            <strong>{{ required_skill_labels|length }}</strong>
-        </div>
-        <div class="job-step-tile">
-            <span>Backlog Rule</span>
-            <strong>{{ 'Allowed' if draft.get('allow_active_backlog', True) else 'Not Allowed' }}</strong>
-        </div>
-    </section>
-
-    <div class="job-step-layout">
-        <section class="job-form-card job-form-card--summary">
-            <div class="job-form-head">
-                <h2>Draft Summary</h2>
-                <p>Review the role basics before you publish the job.</p>
-            </div>
-
-            <div class="job-summary-block">
-                <span>Description</span>
-                <p>{{ draft.get('job_description', '') }}</p>
-            </div>
-
-            <div class="job-summary-block">
-                <span>Allow Active Backlog</span>
-                <p>{{ 'Yes' if draft.get('allow_active_backlog', True) else 'No' }}</p>
-            </div>
-
-            <div class="job-summary-block">
-                <span>Required Skills</span>
-                <div class="job-summary-skills">
-                    {% for skill in required_skill_labels %}
-                    <span class="job-summary-skill">{{ skill }}</span>
-                    {% else %}
-                    <span class="job-summary-skill is-empty">No skills selected.</span>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-
-        <form class="job-create-form" method="post" action="/company/job/create">
-            <section class="job-form-card">
-                <div class="job-form-head">
-                    <h2>Screening Settings</h2>
-                    <p>Set the final filters that PathForge should use for shortlisting.</p>
-                </div>
-
-                <div class="job-form-grid">
-                    <div class="job-field-group">
-                        <label class="job-field-label" for="min-cgpa">Minimum CGPA</label>
-                        <input id="min-cgpa" name="min_cgpa" type="number" step="0.01" min="0" max="10" value="7.0" required>
-                    </div>
-
-                    <div class="job-field-group">
-                        <label class="job-field-label" for="shortlist-count">Shortlist Count</label>
-                        <input id="shortlist-count" name="shortlist_count" type="number" min="1" value="20" required>
-                    </div>
-                </div>
+    <form class="job-create-form job-create-form--overlap" method="post" action="/company/job/create/step2" data-company-job-step2-form>
+        <div class="job-stage-layout">
+            <section class="job-form-card job-form-card--overlap">
+                <header class="job-card-intro">
+                    <h1>Create Job</h1>
+                    <p>Step 2 of 3. Add the role details for {{ company.get('username', 'Company') }}.</p>
+                </header>
 
                 <div class="job-field-group">
-                    <label class="job-field-label" for="application-deadline">Application Deadline</label>
-                    <input id="application-deadline" name="application_deadline" type="datetime-local" required>
+                    <label class="job-field-label" for="job-description">Job Description</label>
+                    <textarea id="job-description" name="job_description" placeholder="Describe the role, expectations, and ideal profile." required>{{ saved_description }}</textarea>
+                </div>
+
+                <div class="job-switch-row">
+                    <div class="job-switch-copy">
+                        <span class="job-switch-title">Allow Active Backlog</span>
+                        <span class="job-switch-text">Keep this on if candidates with an active backlog should remain eligible.</span>
+                    </div>
+                    <label class="job-switch" for="active-backlog-switch">
+                        <input id="active-backlog" name="active_backlog" type="hidden" value="{{ 'yes' if allow_backlog else 'no' }}">
+                        <input id="active-backlog-switch" type="checkbox" data-backlog-switch aria-label="Allow active backlog" {% if allow_backlog %}checked{% endif %}>
+                        <span class="job-switch-track" aria-hidden="true"></span>
+                    </label>
+                </div>
+
+                <div class="job-form-actions">
+                    <button type="submit" class="job-button job-button--primary">Continue to Step 3</button>
+                    <a class="job-button job-button--ghost" href="/company/job/create/step1">Back to Step 1</a>
                 </div>
             </section>
 
-            <div class="job-form-actions">
-                <button type="submit" class="job-button job-button--primary">Create Job</button>
-                <a class="job-button job-button--ghost" href="/company/job/create/step1">Back to Step 1</a>
-            </div>
-        </form>
-    </div>
+            <aside class="job-stage-visual" aria-hidden="true">
+                <div class="job-stage-visual-card"></div>
+            </aside>
+        </div>
+    </form>
 </main>
+<script>
+    (function () {
+        const alertBanner = document.querySelector("[data-auto-dismiss-alert]");
+        if (alertBanner) {
+            window.setTimeout(function () {
+                alertBanner.classList.add("is-dismissing");
+                window.setTimeout(function () {
+                    alertBanner.remove();
+                }, 320);
+            }, 5000);
+        }
+
+        const hiddenInput = document.querySelector("#active-backlog");
+        const backlogSwitch = document.querySelector("[data-backlog-switch]");
+        if (!hiddenInput || !backlogSwitch) {
+            return;
+        }
+
+        const syncBacklogValue = function () {
+            hiddenInput.value = backlogSwitch.checked ? "yes" : "no";
+        };
+
+        syncBacklogValue();
+        backlogSwitch.addEventListener("change", syncBacklogValue);
+    })();
+</script>
 </body>
 </html>

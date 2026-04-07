@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Job - Step 3</title>
+    <link rel="stylesheet" href="/static/css/company_job_step2.css?v={{ asset_version|default('1') }}">
+</head>
+<body>
+<header class="ribbon">
+    <span class="ribbon-title">PathForge.</span>
+    <a class="ribbon-action" href="/company/dashboard">Company Dashboard</a>
+</header>
+
+{% if error %}
+<p class="status-banner status-error company-job-alert" role="alert" data-auto-dismiss-alert>{{ error }}</p>
+{% endif %}
+
+<main class="job-create-main">
+    <form class="job-create-form job-create-form--overlap" method="post" action="/company/job/create">
+        <div class="job-stage-layout">
+            <section class="job-form-card job-form-card--overlap">
+                <header class="job-card-intro">
+                    <h1>Create Job</h1>
+                    <p>Step 3 of 3. Finalize screening settings for {{ company.get('username', 'Company') }}.</p>
+                </header>
+
+                <div class="job-form-head">
+                    <h2>Review Summary</h2>
+                </div>
+
+                <div class="job-summary-grid job-summary-grid--single">
+                    <div class="job-summary-block job-summary-block--surface">
+                        <span>Description</span>
+                        <p>{{ draft.get('job_description', '') }}</p>
+                    </div>
+                </div>
+
+                <div class="job-summary-block job-summary-block--surface job-summary-block--skills">
+                    <span>Required Skills</span>
+                    <div class="job-summary-skills">
+                        {% for skill in required_skill_labels %}
+                        <span class="job-summary-skill">{{ skill }}</span>
+                        {% else %}
+                        <span class="job-summary-skill is-empty">No skills selected.</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="job-section-divider"></div>
+
+                <div class="job-form-head job-form-head--secondary">
+                    <h2>Screening Settings</h2>
+                    <p>Set the final filters that PathForge should use for shortlisting.</p>
+                </div>
+
+                <div class="job-form-grid">
+                    <div class="job-field-group">
+                        <label class="job-field-label" for="min-cgpa">Minimum CGPA</label>
+                        <input id="min-cgpa" name="min_cgpa" type="number" step="0.01" min="0" max="10" value="7.0" required>
+                    </div>
+
+                    <div class="job-field-group">
+                        <label class="job-field-label" for="shortlist-count">Shortlist Count</label>
+                        <input id="shortlist-count" name="shortlist_count" type="number" min="1" value="20" required>
+                    </div>
+                </div>
+
+                <div class="job-field-group">
+                    <label class="job-field-label" for="application-deadline">Application Deadline</label>
+                    <input id="application-deadline" name="application_deadline" type="date" required>
+                </div>
+
+                <div class="job-form-actions">
+                    <button type="submit" class="job-button job-button--primary">Create Job</button>
+                    <a class="job-button job-button--ghost" href="/company/job/create/step2">Back to Step 2</a>
+                </div>
+            </section>
+
+            <aside class="job-stage-visual" aria-hidden="true">
+                <div class="job-stage-visual-card"></div>
+            </aside>
+        </div>
+    </form>
+</main>
+<script>
+    (function () {
+        const alertBanner = document.querySelector("[data-auto-dismiss-alert]");
+        if (!alertBanner) {
+            return;
+        }
+
+        window.setTimeout(function () {
+            alertBanner.classList.add("is-dismissing");
+            window.setTimeout(function () {
+                alertBanner.remove();
+            }, 320);
+        }, 5000);
+    })();
+</script>
+</body>
+</html>

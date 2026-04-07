@@ -8,6 +8,56 @@
     const notificationCards = Array.from(toolbar.querySelectorAll("[data-notification-card]"));
     let openMenu = null;
 
+    function syncNotificationCard(card, options) {
+        const settings = options || {};
+        const toggle = card.querySelector("[data-notification-toggle]");
+        const body = card.querySelector(".student-notification-body");
+        const isOpen = card.classList.contains("is-open");
+
+        if (toggle) {
+            toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        }
+
+        if (!body) {
+            return;
+        }
+
+        const nextHeight = isOpen ? body.scrollHeight + "px" : "0px";
+
+        if (settings.immediate) {
+            const previousTransition = body.style.transition;
+            body.style.transition = "none";
+            body.style.maxHeight = nextHeight;
+            void body.offsetHeight;
+            body.style.transition = previousTransition;
+            return;
+        }
+
+        body.style.maxHeight = nextHeight;
+    }
+
+    function openNotificationCard(card, options) {
+        const settings = options || {};
+        card.classList.add("is-open");
+        syncNotificationCard(card, settings);
+
+        if (settings.skipScroll) {
+            return;
+        }
+
+        window.requestAnimationFrame(function () {
+            card.scrollIntoView({
+                block: "nearest",
+                behavior: settings.immediate ? "auto" : "smooth",
+            });
+        });
+    }
+
+    function closeNotificationCard(card, options) {
+        card.classList.remove("is-open");
+        syncNotificationCard(card, options);
+    }
+
     function closeMenu(menu) {
         if (!menu) {
             return;
@@ -46,6 +96,12 @@
             panel.hidden = false;
         }
         openMenu = menu;
+
+        notificationCards.forEach(function (card) {
+            if (card.classList.contains("is-open")) {
+                syncNotificationCard(card);
+            }
+        });
     }
 
     menus.forEach(function (menu) {
@@ -71,17 +127,30 @@
             return;
         }
 
+        syncNotificationCard(card, { immediate: true });
+
         toggle.addEventListener("click", function () {
             const shouldOpen = !card.classList.contains("is-open");
             notificationCards.forEach(function (otherCard) {
-                const otherToggle = otherCard.querySelector("[data-notification-toggle]");
-                otherCard.classList.remove("is-open");
-                if (otherToggle) {
-                    otherToggle.setAttribute("aria-expanded", "false");
+                if (otherCard !== card) {
+                    closeNotificationCard(otherCard);
                 }
             });
-            card.classList.toggle("is-open", shouldOpen);
-            toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+
+            if (shouldOpen) {
+                openNotificationCard(card);
+                return;
+            }
+
+            closeNotificationCard(card);
+        });
+    });
+
+    window.addEventListener("resize", function () {
+        notificationCards.forEach(function (card) {
+            if (card.classList.contains("is-open")) {
+                syncNotificationCard(card, { immediate: true });
+            }
         });
     });
 

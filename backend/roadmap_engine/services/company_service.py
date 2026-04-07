@@ -1,12 +1,15 @@
 import hashlib
 from datetime import date, datetime
 
+from backend.mentor_module.services import mentor_service
+from backend.mentor_module.storage import mentor_repo
 from backend.roadmap_engine.services.skill_normalizer import deduplicate_skills, display_skill, normalize_skill
 from backend.roadmap_engine.storage import company_repo, goals_repo, matching_repo, students_repo
 from backend.roadmap_engine.utils import parse_custom_skills, utc_today
 
 
 TOP_FILTER_OPTIONS = [10, 20, 50, 100]
+MENTOR_BADGE_RANK = {"gold": 3, "silver": 2, "bronze": 1}
 
 
 def _hash_password(password: str) -> str:
@@ -119,6 +122,75 @@ def _score_for_student_skill(student_id: int, normalized_skill: str) -> tuple[fl
     return _synthetic_skill_score(student_id, normalized_skill), "simulated"
 
 
+def _mentor_badge_rank(badge_level: str | None) -> int:
+    return MENTOR_BADGE_RANK.get(str(badge_level or "").strip().lower(), 0)
+
+
+def _mentor_snapshot(
+    *,
+    student_id: int,
+    required_skills: list[str],
+    test_score: float,
+    replan_count: int,
+) -> dict:
+    best_profile: dict | None = None
+
+    for skill_key in required_skills:
+        profile = mentor_repo.get_mentor_profile(student_id, skill_key)
+        if profile is None:
+            continue
+        if best_profile is None:
+            best_profile = profile
+            continue
+
+        current_key = (
+            int(profile.get("opted_in") or 0),
+            _mentor_badge_rank(profile.get("badge_level")),
+            int(profile.get("people_helped") or 0),
+        )
+        best_key = (
+            int(best_profile.get("opted_in") or 0),
+            _mentor_badge_rank(best_profile.get("badge_level")),
+            int(best_profile.get("people_helped") or 0),
+        )
+        if current_key > best_key:
+            best_profile = profile
+
+    if best_profile is None:
+        return {
+            "mentor_score": None,
+            "mentor_badge": None,
+            "mentor_badge_label": "No mentor badge",
+            "mentor_skill_label": None,
+            "mentor_people_helped": 0,
+            "is_mentor_available": False,
+        }
+
+    people_helped = int(best_profile.get("people_helped") or 0)
+    badge_level = str(best_profile.get("badge_level") or "").strip().lower() or None
+    mentor_score = mentor_service.compute_mentor_grade(
+        float(test_score),
+        int(replan_count),
+        people_helped,
+    )
+
+    if badge_level:
+        badge_label = f"{badge_level.title()} mentor"
+    elif int(best_profile.get("opted_in") or 0):
+        badge_label = "Mentor ready"
+    else:
+        badge_label = "No mentor badge"
+
+    return {
+        "mentor_score": mentor_score,
+        "mentor_badge": badge_level,
+        "mentor_badge_label": badge_label,
+        "mentor_skill_label": display_skill(str(best_profile.get("normalized_skill") or "")),
+        "mentor_people_helped": people_helped,
+        "is_mentor_available": bool(int(best_profile.get("opted_in") or 0)),
+    }
+
+
 def _rank_candidates_for_job(job: dict) -> list[dict]:
     required = [str(skill) for skill in (job.get("required_skills") or []) if str(skill).strip()]
     required_set = set(required)
@@ -193,6 +265,12 @@ def _rank_candidates_for_job(job: dict) -> list[dict]:
             (cumulative_test_score * 0.62) + (regularity * 0.23) + (cgpa_score * 0.15),
             2,
         )
+        mentor_snapshot = _mentor_snapshot(
+            student_id=student_id,
+            required_skills=required,
+            test_score=cumulative_test_score,
+            replan_count=replan_count,
+        )
 
         app = application_by_student.get(student_id)
         application_status = app["status"] if app else "pending"
@@ -214,6 +292,7 @@ def _rank_candidates_for_job(job: dict) -> list[dict]:
                 "application_status": application_status,
                 "is_shortlisted": student_id in shortlisted,
                 "metrics_source": "simulated" if "simulated" in sources else "assessment",
+                **mentor_snapshot,
             }
         )
 

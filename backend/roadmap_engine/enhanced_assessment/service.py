@@ -2,6 +2,7 @@ from typing import Any
 
 from backend.roadmap_engine.enhanced_assessment.coding_languages import (
     default_supported_languages_for_skill,
+    locked_coding_language_for_skill,
     normalize_coding_language,
 )
 from backend.roadmap_engine.enhanced_assessment import coding_repo
@@ -9,6 +10,7 @@ from backend.roadmap_engine.enhanced_assessment.coding_builder import build_codi
 from backend.roadmap_engine.enhanced_assessment.mcq_builder import build_mcq_assessment
 from backend.roadmap_engine.enhanced_assessment.piston_client import run_code
 from backend.roadmap_engine.enhanced_assessment.skill_gate import requires_coding_test
+from backend.roadmap_engine.storage import goals_repo
 
 
 def generate_mcq(skill_name: str, selected_playlist: dict | None) -> tuple[list[dict], list[int]]:
@@ -61,11 +63,12 @@ def run_preview(
     if question_index < 0 or question_index >= len(questions):
         raise ValueError("Invalid coding question index.")
     question = questions[question_index]
+    effective_skill_name = _coding_skill_name(coding)
 
     if not str(code or "").strip():
         raise ValueError("Code is required.")
 
-    allowed_languages = _allowed_languages_for_question(question)
+    allowed_languages = _allowed_languages_for_question(question, skill_name=effective_skill_name)
     requested_language = normalize_coding_language(language)
     if requested_language not in allowed_languages:
         raise ValueError("Selected language is not allowed for this coding question.")
@@ -111,7 +114,12 @@ def evaluate_and_submit_coding(
         }
 
     questions = coding.get("questions", [])
-    submissions_by_index = _normalize_submissions(coding_submissions or [], questions=questions)
+    effective_skill_name = str(skill_name or _coding_skill_name(coding) or "")
+    submissions_by_index = _normalize_submissions(
+        coding_submissions or [],
+        questions=questions,
+        skill_name=effective_skill_name,
+    )
     question_results: list[dict[str, Any]] = []
     score_accumulator = 0.0
 
@@ -185,7 +193,7 @@ def evaluate_and_submit_coding(
     }
 
 
-def _normalize_submissions(raw: list[dict], *, questions: list[dict]) -> dict[int, dict]:
+def _normalize_submissions(raw: list[dict], *, questions: list[dict], skill_name: str) -> dict[int, dict]:
     normalized: dict[int, dict] = {}
     for item in raw:
         if not isinstance(item, dict):
@@ -199,7 +207,7 @@ def _normalize_submissions(raw: list[dict], *, questions: list[dict]) -> dict[in
             continue
         if index < 0 or index >= len(questions):
             continue
-        allowed_languages = _allowed_languages_for_question(questions[index])
+        allowed_languages = _allowed_languages_for_question(questions[index], skill_name=skill_name)
         language = normalize_coding_language(str(item.get("language", "")))
         if not language and len(allowed_languages) == 1:
             language = allowed_languages[0]
@@ -209,7 +217,11 @@ def _normalize_submissions(raw: list[dict], *, questions: list[dict]) -> dict[in
     return normalized
 
 
-def _allowed_languages_for_question(question: dict) -> list[str]:
+def _allowed_languages_for_question(question: dict, *, skill_name: str = "") -> list[str]:
+    locked_language = locked_coding_language_for_skill(skill_name)
+    if locked_language:
+        return [locked_language]
+
     raw_languages = question.get("supported_languages", [])
     supported: list[str] = []
     if isinstance(raw_languages, list):
@@ -217,9 +229,29 @@ def _allowed_languages_for_question(question: dict) -> list[str]:
             normalized = normalize_coding_language(str(language))
             if normalized and normalized not in supported:
                 supported.append(normalized)
+
+    if not supported:
+        legacy_language = normalize_coding_language(str(question.get("language", "")))
+        if legacy_language:
+            supported.append(legacy_language)
+
     if supported:
         return supported
-    return list(default_supported_languages_for_skill(""))
+    return list(default_supported_languages_for_skill(skill_name))
+
+
+def _coding_skill_name(coding: dict | None) -> str:
+    if not isinstance(coding, dict):
+        return ""
+    try:
+        goal_skill_id = int(coding.get("goal_skill_id") or 0)
+    except (TypeError, ValueError):
+        goal_skill_id = 0
+    if goal_skill_id > 0:
+        goal_skill = goals_repo.get_goal_skill(goal_skill_id)
+        if goal_skill:
+            return str(goal_skill.get("skill_name", "") or "")
+    return str(coding.get("skill_name", "") or "")
 
 
 def _execute_cases(*, language: str, code: str, test_cases: list[dict]) -> list[dict]:
@@ -272,6 +304,8 @@ def _outputs_match(actual: str, expected: str) -> bool:
 def _sanitize_for_ui(coding: dict | None) -> dict | None:
     if coding is None:
         return None
+    effective_skill_name = _coding_skill_name(coding)
+    locked_language = locked_coding_language_for_skill(effective_skill_name)
     question_summaries = []
     for index, question in enumerate(coding.get("questions", [])):
         question_summaries.append(
@@ -285,7 +319,10 @@ def _sanitize_for_ui(coding: dict | None) -> dict | None:
                 "output_format": question.get("output_format"),
                 "sample_input": question.get("sample_input"),
                 "sample_output": question.get("sample_output"),
-                "supported_languages": _allowed_languages_for_question(question),
+                "supported_languages": _allowed_languages_for_question(
+                    question,
+                    skill_name=effective_skill_name,
+                ),
                 "test_case_count": len(question.get("test_cases", [])),
             }
         )
@@ -293,6 +330,8 @@ def _sanitize_for_ui(coding: dict | None) -> dict | None:
     latest_submission = coding.get("latest_submission")
     return {
         "assessment_id": coding.get("assessment_id"),
+        "skill_name": effective_skill_name,
+        "locked_language": locked_language,
         "score_percent": coding.get("score_percent"),
         "passed": coding.get("passed"),
         "submitted_at": coding.get("submitted_at"),

@@ -2793,8 +2793,8 @@ button,
     position: absolute;
     right: calc(100% + 18px);
     bottom: 22px;
-    width: min(460px, calc(100vw - 252px));
-    height: min(640px, calc(100vh - 56px));
+    width: min(420px, calc(100vw - 252px));
+    height: min(560px, calc(100vh - 124px));
     background: transparent;
     border: none;
     box-shadow: none;
@@ -2829,11 +2829,11 @@ button,
     position: relative;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 18px;
+    gap: 16px;
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    padding: 24px;
+    padding: 20px;
     border: 1px solid rgba(222, 228, 237, 0.92);
     border-radius: 24px;
     background: #ffffff;
@@ -2879,7 +2879,7 @@ button,
 
 .doubtbot-header h4 {
     margin: 0;
-    font-size: 30px;
+    font-size: 26px;
     font-weight: 900;
     line-height: 1.05;
     color: #101828;
@@ -2888,7 +2888,7 @@ button,
 .doubtbot-header p {
     margin: 4px 0 0;
     color: #556070;
-    font-size: 17px;
+    font-size: 15px;
 }
 
 .doubtbot-close {
@@ -2918,7 +2918,7 @@ button,
 .doubtbot-thread {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     min-height: 0;
     padding: 4px 8px 112px 4px;
     overflow: auto;
@@ -3164,22 +3164,22 @@ button,
     .doubtbot-panel {
         right: 0;
         bottom: calc(100% - 10px);
-        width: min(420px, calc(100vw - 20px));
-        height: min(600px, calc(100vh - 172px));
+        width: min(380px, calc(100vw - 24px));
+        height: min(520px, calc(100vh - 196px));
         transform-origin: 100% 100%;
     }
 
     .doubtbot-glass {
-        padding: 18px;
-        gap: 14px;
+        padding: 16px;
+        gap: 12px;
     }
 
     .doubtbot-header h4 {
-        font-size: 24px;
+        font-size: 22px;
     }
 
     .doubtbot-header p {
-        font-size: 15px;
+        font-size: 14px;
     }
 
     .doubtbot-composer-shell {

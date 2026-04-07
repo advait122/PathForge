@@ -232,6 +232,10 @@ def _safe_internal_return_to(value: str, fallback: str = "") -> str:
     return fallback
 
 
+def _normalize_student_login_name(name: str) -> str:
+    return (name or "").strip().lower()
+
+
 def _student_ribbon_context(student_id: int) -> dict:
     invites = company_service.list_student_pending_company_jobs(student_id)
     return {
@@ -283,6 +287,30 @@ def onboarding_page(request: Request, error: str = "", mode: str = "signup") -> 
             "auth_mode": auth_mode,
         },
     )
+
+
+@router.get("/student/signup/check-name")
+def student_signup_name_check(name: str = Query(default="")) -> JSONResponse:
+    login_name = _normalize_student_login_name(name)
+    if not login_name:
+        return JSONResponse(
+            {
+                "available": False,
+                "message": "Name is required.",
+            },
+            status_code=400,
+        )
+
+    existing_account = students_repo.get_student_account_by_username(login_name)
+    if existing_account:
+        return JSONResponse(
+            {
+                "available": False,
+                "message": "Name already exists. Please login instead.",
+            }
+        )
+
+    return JSONResponse({"available": True})
 
 
 @router.post("/onboarding")
@@ -516,8 +544,6 @@ def company_job_step1_submit(
     request: Request,
     selected_skills: list[str] = Form(default=[]),
     custom_required_skills: str = Form(default=""),
-    job_description: str = Form(...),
-    active_backlog: str = Form(default="yes"),
 ) -> RedirectResponse:
     company = _current_company(request)
     if company is None:
@@ -527,17 +553,18 @@ def company_job_step1_submit(
             status_code=303,
         )
 
+    existing_draft = _load_company_draft(request)
+
     try:
         required_skills = company_service.parse_required_skills(selected_skills, custom_required_skills)
-        clean_description = " ".join((job_description or "").split()).strip()
-        if not clean_description:
-            raise ValueError("Job description is required.")
-        allow_active_backlog = str(active_backlog).strip().lower() == "yes"
+        saved_description = " ".join((existing_draft.get("job_description", "") or "").split()).strip()
+        saved_backlog_value = str(existing_draft.get("allow_active_backlog", True)).strip().lower()
+        allow_active_backlog = saved_backlog_value not in {"0", "false", "no"}
 
         draft = {
             "required_skills": required_skills,
             "custom_required_skills": str(custom_required_skills or "").strip(),
-            "job_description": clean_description,
+            "job_description": saved_description,
             "allow_active_backlog": allow_active_backlog,
         }
     except ValueError as error:
@@ -563,15 +590,84 @@ def company_job_step2_page(request: Request, error: str = "") -> HTMLResponse:
         return RedirectResponse(url=f"/company/auth?error={escaped}", status_code=303)
 
     draft = _load_company_draft(request)
-    if not draft:
+    if not draft or not draft.get("required_skills"):
         escaped = quote_plus("Please complete step 1 first.")
         return RedirectResponse(url=f"/company/job/create/step1?error={escaped}", status_code=303)
+
+    return templates.TemplateResponse(
+        request,
+        "company_job_step2.html",
+        {
+            "request": request,
+            "asset_version": _asset_version(),
+            "error": error,
+            "company": company,
+            "draft": draft,
+        },
+    )
+
+
+@router.post("/company/job/create/step2")
+def company_job_step2_submit(
+    request: Request,
+    job_description: str = Form(...),
+    active_backlog: str = Form(default="yes"),
+) -> RedirectResponse:
+    company = _current_company(request)
+    if company is None:
+        escaped = quote_plus("Please login as a company first.")
+        return RedirectResponse(url=f"/company/auth?error={escaped}", status_code=303)
+
+    draft = _load_company_draft(request)
+    if not draft or not draft.get("required_skills"):
+        escaped = quote_plus("Please complete step 1 first.")
+        return RedirectResponse(url=f"/company/job/create/step1?error={escaped}", status_code=303)
+
+    try:
+        clean_description = " ".join((job_description or "").split()).strip()
+        if not clean_description:
+            raise ValueError("Job description is required.")
+        allow_active_backlog = str(active_backlog).strip().lower() == "yes"
+        updated_draft = {
+            **draft,
+            "job_description": clean_description,
+            "allow_active_backlog": allow_active_backlog,
+        }
+    except ValueError as error:
+        escaped = quote_plus(str(error))
+        return RedirectResponse(url=f"/company/job/create/step2?error={escaped}", status_code=303)
+
+    response = RedirectResponse(url="/company/job/create/step3", status_code=303)
+    response.set_cookie(
+        COMPANY_DRAFT_COOKIE_KEY,
+        json.dumps(updated_draft),
+        httponly=True,
+        samesite="lax",
+        max_age=1800,
+    )
+    return response
+
+
+@router.get("/company/job/create/step3", response_class=HTMLResponse)
+def company_job_step3_page(request: Request, error: str = "") -> HTMLResponse:
+    company = _current_company(request)
+    if company is None:
+        escaped = quote_plus("Please login as a company first.")
+        return RedirectResponse(url=f"/company/auth?error={escaped}", status_code=303)
+
+    draft = _load_company_draft(request)
+    if not draft or not draft.get("required_skills"):
+        escaped = quote_plus("Please complete step 1 first.")
+        return RedirectResponse(url=f"/company/job/create/step1?error={escaped}", status_code=303)
+    if not str(draft.get("job_description", "")).strip():
+        escaped = quote_plus("Please complete step 2 first.")
+        return RedirectResponse(url=f"/company/job/create/step2?error={escaped}", status_code=303)
 
     required = [display_skill(str(item)) for item in draft.get("required_skills", [])]
 
     return templates.TemplateResponse(
         request,
-        "company_job_step2.html",
+        "company_job_step3.html",
         {
             "request": request,
             "asset_version": _asset_version(),
@@ -599,6 +695,12 @@ def company_job_create(
     if not draft:
         escaped = quote_plus("Please complete step 1 first.")
         return RedirectResponse(url=f"/company/job/create/step1?error={escaped}", status_code=303)
+    if not draft.get("required_skills"):
+        escaped = quote_plus("Please complete step 1 first.")
+        return RedirectResponse(url=f"/company/job/create/step1?error={escaped}", status_code=303)
+    if not str(draft.get("job_description", "")).strip():
+        escaped = quote_plus("Please complete step 2 first.")
+        return RedirectResponse(url=f"/company/job/create/step2?error={escaped}", status_code=303)
 
     try:
         job = company_service.create_company_job(
@@ -612,7 +714,7 @@ def company_job_create(
         )
     except ValueError as error:
         escaped = quote_plus(str(error))
-        return RedirectResponse(url=f"/company/job/create/step2?error={escaped}", status_code=303)
+        return RedirectResponse(url=f"/company/job/create/step3?error={escaped}", status_code=303)
 
     response = RedirectResponse(
         url=f"/company/dashboard?job_id={job['id']}&top={int(job['shortlist_count'])}",

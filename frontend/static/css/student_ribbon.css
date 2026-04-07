@@ -1,3 +1,7 @@
+.ribbon {
+    z-index: 1300;
+}
+
 .student-ribbon-tools {
     position: relative;
     z-index: 3;
@@ -68,6 +72,7 @@
     position: absolute;
     top: calc(100% + 12px);
     right: 0;
+    z-index: 12;
     width: min(420px, calc(100vw - 24px));
     padding: 16px;
     border: 1px solid rgba(255, 255, 255, 0.58);
@@ -138,13 +143,23 @@
     max-height: min(62vh, 460px);
     overflow-y: auto;
     padding-right: 4px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(89, 101, 121, 0.28) transparent;
+    -ms-overflow-style: auto;
 }
 
 .student-notification-list::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+    width: 6px;
+    height: 6px;
+}
+
+.student-notification-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.student-notification-list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(89, 101, 121, 0.24);
 }
 
 .student-notification-card {
@@ -225,7 +240,6 @@
 }
 
 .student-notification-card.is-open .student-notification-body {
-    max-height: 320px;
     opacity: 1;
     padding: 0 16px 16px;
 }

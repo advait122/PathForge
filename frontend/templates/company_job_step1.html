@@ -8,9 +8,7 @@
 </head>
 <body>
 {% set saved_required = draft.get('required_skills', []) if draft else [] %}
-{% set saved_description = draft.get('job_description', '') if draft else '' %}
 {% set saved_custom_required = draft.get('custom_required_skills', '') if draft else '' %}
-{% set allow_backlog = draft.get('allow_active_backlog', True) if draft else True %}
 {% set company_signin_back_url = '/company/auth?show_login=1&return_to=/company/job/create/step1' %}
 
 <header class="ribbon">
@@ -18,98 +16,71 @@
     <a class="ribbon-action" href="/company/dashboard">Company Dashboard</a>
 </header>
 
+{% if error %}
+<p class="status-banner status-error company-job-alert" role="alert" data-auto-dismiss-alert>{{ error }}</p>
+{% endif %}
+
 <main class="job-create-main">
-    <header class="job-page-head">
-        <h1>Create Job</h1>
-        <p>Step 1 of 2. Define the role essentials for {{ company.get('username', 'Company') }}.</p>
-    </header>
+    <form class="job-create-form job-create-form--overlap" method="post" action="/company/job/create/step1" data-job-step1-form>
+        <div class="job-stage-layout">
+            <section class="job-form-card job-form-card--overlap">
+                <header class="job-card-intro">
+                    <h1>Create Job</h1>
+                    <p>Step 1 of 3. Choose the required skills for {{ company.get('username', 'Company') }}.</p>
+                </header>
 
-    {% if error %}
-    <div class="status-banner status-error">{{ error }}</div>
-    {% endif %}
+                <div class="job-form-head">
+                    <h2>Required Skills</h2>
+                    <p>Select the core skills your candidates must already have.</p>
+                </div>
 
-    <section class="job-step-strip" aria-label="Job creation overview">
-        <div class="job-step-tile">
-            <span>Step</span>
-            <strong>1 of 2</strong>
-        </div>
-        <div class="job-step-tile">
-            <span>Company</span>
-            <strong>{{ company.get('username', 'Company') }}</strong>
-        </div>
-        <div class="job-step-tile">
-            <span>Backlog Rule</span>
-            <strong data-job-backlog-summary>{{ 'Yes' if allow_backlog else 'No' }}</strong>
-        </div>
-    </section>
-
-    <form class="job-create-form" method="post" action="/company/job/create/step1" data-job-step1-form>
-        <section class="job-form-card">
-            <div class="job-form-head">
-                <h2>Required Skills</h2>
-                <p>Select the core skills your candidates must already have.</p>
-            </div>
-
-            <div class="job-skills-grid">
-                {% for skill in predefined_skills %}
-                <label class="job-skill-chip{% if skill in saved_required %} is-selected{% endif %}">
-                    <input type="checkbox" name="selected_skills" value="{{ skill }}" {% if skill in saved_required %}checked{% endif %}>
-                    <span>{{ skill }}</span>
-                </label>
-                {% endfor %}
-            </div>
-
-            <div class="job-field-group">
-                <label class="job-field-label" for="custom-required-skills">Custom Required Skills</label>
-                <input id="custom-required-skills" name="custom_required_skills" type="text" value="{{ saved_custom_required }}" placeholder="Add custom skills separated by commas">
-            </div>
-        </section>
-
-        <section class="job-form-card">
-            <div class="job-form-head">
-                <h2>Role Details</h2>
-                <p>Add the job description and decide whether active backlogs are allowed.</p>
-            </div>
-
-            <div class="job-field-group">
-                <label class="job-field-label" for="job-description">Job Description</label>
-                <textarea id="job-description" name="job_description" placeholder="Describe the role, expectations, and ideal profile." required>{{ saved_description }}</textarea>
-            </div>
-
-            <div class="job-form-grid">
-                <div class="job-field-group">
-                    <label class="job-field-label">Allow Active Backlog</label>
-                    <div class="job-toggle-group" role="radiogroup" aria-label="Allow active backlog">
-                        <label class="job-toggle-option{% if allow_backlog %} is-selected{% endif %}">
-                            <input type="radio" name="active_backlog" value="yes" {% if allow_backlog %}checked{% endif %}>
-                            <span>Yes</span>
+                <div class="job-skills-scroll" aria-label="Required skills">
+                    <div class="job-skills-grid">
+                        {% for skill in predefined_skills %}
+                        <label class="job-skill-chip{% if skill in saved_required %} is-selected{% endif %}">
+                            <input type="checkbox" name="selected_skills" value="{{ skill }}" {% if skill in saved_required %}checked{% endif %}>
+                            <span>{{ skill }}</span>
                         </label>
-                        <label class="job-toggle-option{% if not allow_backlog %} is-selected{% endif %}">
-                            <input type="radio" name="active_backlog" value="no" {% if not allow_backlog %}checked{% endif %}>
-                            <span>No</span>
-                        </label>
+                        {% endfor %}
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <div class="job-form-actions">
-            <button type="submit" class="job-button job-button--primary">Continue to Step 2</button>
-            <a class="job-button job-button--ghost" href="{{ company_signin_back_url }}" data-job-back-link>Back</a>
+                <div class="job-field-group">
+                    <label class="job-field-label" for="custom-required-skills">Custom Required Skills</label>
+                    <input id="custom-required-skills" name="custom_required_skills" type="text" value="{{ saved_custom_required }}" placeholder="Add custom skills separated by commas">
+                </div>
+
+                <div class="job-form-actions">
+                    <button type="submit" class="job-button job-button--primary">Continue to Step 2</button>
+                    <a class="job-button job-button--ghost" href="{{ company_signin_back_url }}" data-job-back-link>Back</a>
+                </div>
+            </section>
+
+            <aside class="job-stage-visual" aria-hidden="true">
+                <div class="job-stage-visual-card"></div>
+            </aside>
         </div>
     </form>
 </main>
 <script>
     (function () {
+        const alertBanner = document.querySelector("[data-auto-dismiss-alert]");
+        if (alertBanner) {
+            window.setTimeout(function () {
+                alertBanner.classList.add("is-dismissing");
+                window.setTimeout(function () {
+                    alertBanner.remove();
+                }, 320);
+            }, 5000);
+        }
+
         const form = document.querySelector("[data-job-step1-form]");
         if (!form) {
             return;
         }
 
         const storageKey = "pathforge_company_job_step1";
-        const backlogSummary = document.querySelector("[data-job-backlog-summary]");
         const skillChips = Array.from(form.querySelectorAll(".job-skill-chip"));
-        const toggleOptions = Array.from(form.querySelectorAll(".job-toggle-option"));
         const backLink = form.querySelector("[data-job-back-link]");
 
         const readState = function () {
@@ -118,8 +89,6 @@
                     return input.value;
                 }),
                 custom_required_skills: (form.querySelector("#custom-required-skills") || {}).value || "",
-                job_description: (form.querySelector("#job-description") || {}).value || "",
-                active_backlog: (form.querySelector('input[name="active_backlog"]:checked') || {}).value || "yes",
             };
         };
 
@@ -136,21 +105,6 @@
                 const input = chip.querySelector('input[name="selected_skills"]');
                 chip.classList.toggle("is-selected", Boolean(input && input.checked));
             });
-        };
-
-        const applyToggleState = function () {
-            let selectedValue = "yes";
-            toggleOptions.forEach(function (option) {
-                const input = option.querySelector('input[name="active_backlog"]');
-                const isSelected = Boolean(input && input.checked);
-                option.classList.toggle("is-selected", isSelected);
-                if (isSelected && input) {
-                    selectedValue = input.value;
-                }
-            });
-            if (backlogSummary) {
-                backlogSummary.textContent = selectedValue === "no" ? "No" : "Yes";
-            }
         };
 
         const restoreState = function () {
@@ -174,16 +128,6 @@
                 if (customRequiredInput && typeof parsed.custom_required_skills === "string") {
                     customRequiredInput.value = parsed.custom_required_skills;
                 }
-
-                const jobDescriptionInput = form.querySelector("#job-description");
-                if (jobDescriptionInput && typeof parsed.job_description === "string") {
-                    jobDescriptionInput.value = parsed.job_description;
-                }
-
-                const backlogValue = String(parsed.active_backlog || "yes").toLowerCase() === "no" ? "no" : "yes";
-                form.querySelectorAll('input[name="active_backlog"]').forEach(function (input) {
-                    input.checked = input.value === backlogValue;
-                });
             } catch (error) {
                 // Ignore malformed stored data and keep server-rendered values.
             }
@@ -191,7 +135,6 @@
 
         restoreState();
         applySkillState();
-        applyToggleState();
         writeState();
 
         form.addEventListener("change", function (event) {
@@ -201,9 +144,6 @@
             }
             if (target.matches('input[name="selected_skills"]')) {
                 applySkillState();
-            }
-            if (target.matches('input[name="active_backlog"]')) {
-                applyToggleState();
             }
             writeState();
         });

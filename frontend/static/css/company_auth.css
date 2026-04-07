@@ -42,7 +42,7 @@ main {
     display: flex;
     width: 100%;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: clamp(24px, 4vw, 56px);
 }
 
@@ -167,7 +167,7 @@ main {
 
 .company-login-block {
     width: min(440px, 100%);
-    margin: 0 0 0 auto;
+    margin: 0;
     padding: 0;
     border: none;
 }

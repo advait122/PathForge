@@ -10,10 +10,10 @@
 <header class="ribbon onboarding-ribbon">
     <span class="ribbon-title">PathForge</span>
 </header>
-<main>
-    {% if error %}
-    <p class="error">{{ error }}</p>
-    {% endif %}
+{% if error %}
+<p class="error onboarding-alert" role="alert" data-auto-dismiss-alert>{{ error }}</p>
+{% endif %}
+<main class="onboarding-main{% if auth_mode == 'login' %} is-auth-centered{% else %} is-signup-initial{% endif %}">
 
     {% if auth_mode == "login" %}
     <div class="login-layout">
@@ -35,7 +35,7 @@
         <aside class="company-card-panel">
             <div class="company-image-card">
                 <img src="/static/images/for_companies.png?v={{ asset_version|default('1') }}" alt="For companies">
-                <a class="company-image-button" href="/company/auth">sign in as company</a>
+                <a class="company-image-button" href="/company/auth">login as company</a>
             </div>
             <p class="blur-text company-question" aria-label="are you a company?">
                 <span style="--delay: 0ms;">Are</span>
@@ -64,7 +64,7 @@
                     <input id="signup-confirm-password" name="confirm_password" type="password" placeholder="Confirm Password" required>
 
                     <div class="signup-actions">
-                        <button class="signup-next" type="button">Next</button>
+                        <button class="signup-next" type="button">Create Student Account</button>
                     </div>
 
                     <p class="alt-text signup-login-link">
@@ -212,7 +212,6 @@
 
         <aside class="signup-side-panel">
             <div class="signup-side-card">
-                <img src="/static/images/company_signup.png?v={{ asset_version|default('1') }}" alt="Company signup">
                 <a class="signup-company-image-button" href="/company/signup">sign in as company</a>
             </div>
         </aside>
@@ -222,6 +221,60 @@
 </main>
 <script>
     (function () {
+        let alertDismissTimer = null;
+
+        const removeAlertBanner = function (banner) {
+            if (!banner || !banner.isConnected) {
+                return;
+            }
+            banner.remove();
+        };
+
+        const dismissAlertBanner = function (banner) {
+            if (!banner || !banner.isConnected) {
+                return;
+            }
+            banner.classList.add("is-dismissing");
+            window.setTimeout(function () {
+                removeAlertBanner(banner);
+            }, 320);
+        };
+
+        const scheduleAlertDismiss = function (banner) {
+            if (alertDismissTimer) {
+                window.clearTimeout(alertDismissTimer);
+            }
+            alertDismissTimer = window.setTimeout(function () {
+                dismissAlertBanner(banner);
+                alertDismissTimer = null;
+            }, 5000);
+        };
+
+        const showTopAlert = function (message) {
+            let banner = document.querySelector("[data-auto-dismiss-alert]");
+            if (!banner) {
+                banner = document.createElement("p");
+                banner.className = "error onboarding-alert";
+                banner.setAttribute("role", "alert");
+                banner.setAttribute("data-auto-dismiss-alert", "");
+                const ribbon = document.querySelector(".onboarding-ribbon");
+                if (ribbon) {
+                    ribbon.insertAdjacentElement("afterend", banner);
+                } else {
+                    document.body.prepend(banner);
+                }
+            }
+
+            banner.textContent = message;
+            banner.classList.remove("is-dismissing");
+            scheduleAlertDismiss(banner);
+        };
+
+        const alertBanner = document.querySelector("[data-auto-dismiss-alert]");
+        if (alertBanner) {
+            scheduleAlertDismiss(alertBanner);
+        }
+
         const blurText = document.querySelector(".blur-text");
         if (blurText) {
             blurText.addEventListener("mouseenter", function () {
@@ -237,17 +290,20 @@
         }
 
         const signupLayout = document.querySelector(".signup-layout");
+        const onboardingMain = document.querySelector(".onboarding-main");
         const steps = Array.from(signupForm.querySelectorAll(".signup-step"));
         const nextButtons = Array.from(signupForm.querySelectorAll(".signup-next"));
         const prevButtons = Array.from(signupForm.querySelectorAll(".signup-prev"));
         const passwordInput = signupForm.querySelector("#signup-password");
         const confirmInput = signupForm.querySelector("#signup-confirm-password");
+        const signupNameInput = signupForm.querySelector("#signup-name");
         const customSelectRoots = Array.from(signupForm.querySelectorAll("[data-custom-select]"));
         const backlogHiddenInput = signupForm.querySelector("#active-backlog");
         const backlogSwitch = signupForm.querySelector("[data-backlog-switch]");
         const weeklyHoursInput = signupForm.querySelector("#weekly-hours");
         let currentStep = 0;
         let isStepAnimating = false;
+        let isCheckingSignupName = false;
         const signupStepStorageKey = "pathforge_signup_step";
         const navEntry = performance.getEntriesByType("navigation")[0];
         const navType = navEntry && navEntry.type
@@ -419,6 +475,9 @@
             if (signupLayout) {
                 signupLayout.classList.toggle("is-details-stage", stepIndex > 0);
             }
+            if (onboardingMain) {
+                onboardingMain.classList.toggle("is-signup-initial", stepIndex === 0);
+            }
 
             try {
                 sessionStorage.setItem(signupStepStorageKey, String(stepIndex));
@@ -459,6 +518,35 @@
                 if (trigger) {
                     trigger.focus();
                 }
+                return false;
+            }
+
+            return true;
+        };
+
+        const checkStudentNameAvailability = async function () {
+            if (!signupNameInput) {
+                return true;
+            }
+
+            const params = new URLSearchParams({ name: signupNameInput.value });
+            const response = await fetch(`/student/signup/check-name?${params.toString()}`, {
+                headers: {
+                    Accept: "application/json",
+                },
+            });
+
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (error) {
+                payload = {};
+            }
+
+            if (!response.ok || payload.available === false) {
+                showTopAlert(payload.message || "Name already exists. Please login instead.");
+                signupNameInput.focus();
+                signupNameInput.select();
                 return false;
             }
 
@@ -507,13 +595,31 @@
         });
 
         nextButtons.forEach(function (button) {
-            button.addEventListener("click", function () {
-                if (isStepAnimating) {
+            button.addEventListener("click", async function () {
+                if (isStepAnimating || isCheckingSignupName) {
                     return;
                 }
 
                 if (!validateCurrentStep()) {
                     return;
+                }
+
+                if (currentStep === 0) {
+                    isCheckingSignupName = true;
+                    button.disabled = true;
+
+                    try {
+                        const isNameAvailable = await checkStudentNameAvailability();
+                        if (!isNameAvailable) {
+                            return;
+                        }
+                    } catch (error) {
+                        showTopAlert("Couldn't verify the name right now. Please try again.");
+                        return;
+                    } finally {
+                        isCheckingSignupName = false;
+                        button.disabled = false;
+                    }
                 }
 
                 const nextStep = Math.min(currentStep + 1, steps.length - 1);

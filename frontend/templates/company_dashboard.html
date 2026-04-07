@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Company Dashboard</title>
     <link rel="stylesheet" href="/static/css/company_dashboard.css?v={{ asset_version|default('1') }}">
+    <link rel="stylesheet" href="/static/css/student_ribbon.css?v={{ asset_version|default('1') }}">
 </head>
 <body>
 {% set data = company_dashboard or {} %}
@@ -17,12 +18,60 @@
 {% set applied_candidates = data.get('applied_candidates', []) %}
 {% set shortlisted_students = data.get('selected_students', []) %}
 {% set status_counts = data.get('status_counts', {}) %}
-{% set shortlist_limit = active_job.get('shortlist_count', 0) if active_job else 0 %}
-{% set snapshot_goal = shortlist_limit if shortlist_limit else (data.get('eligible_count', 0) if data.get('eligible_count', 0) else 1) %}
-{% set snapshot_percent = ((shortlisted_students|length * 100 / snapshot_goal)|round(0, 'floor'))|int %}
+{% set active_job_title = (active_job.get('job_title') or active_job.get('title')) if active_job else '' %}
+{% set company_name_display = company.get("username", "Company")|replace("_", " ") %}
+{% set analytics_eligible = data.get('eligible_count', 0) %}
+{% set analytics_applied = status_counts.get('applied', 0) %}
+{% set analytics_pending = status_counts.get('pending', 0) %}
+{% set analytics_declined = status_counts.get('declined', 0) %}
+{% set analytics_shortlisted = shortlisted_students|length %}
+{% set analytics_total = analytics_applied + analytics_declined + analytics_pending %}
+{% if analytics_total > 0 %}
+{% set analytics_applied_end = ((analytics_applied / analytics_total) * 100)|round(2) %}
+{% set analytics_declined_end = (((analytics_applied + analytics_declined) / analytics_total) * 100)|round(2) %}
+{% else %}
+{% set analytics_applied_end = 0 %}
+{% set analytics_declined_end = 0 %}
+{% endif %}
 {% set dashboard_href = '/company/dashboard?section=dashboard' ~ ('&job_id=' ~ active_job_id ~ '&top=' ~ top_filter if active_job_id else '') %}
 {% set eligible_href = '/company/dashboard?section=eligible' ~ ('&job_id=' ~ active_job_id ~ '&top=' ~ top_filter if active_job_id else '') %}
 {% set applied_href = '/company/dashboard?section=applied' ~ ('&job_id=' ~ active_job_id ~ '&top=' ~ top_filter if active_job_id else '') %}
+{% macro top_filter_dropdown(select_id, selected_value, options) -%}
+<div class="company-custom-select" data-company-select>
+    <input type="hidden" id="{{ select_id }}" name="top" value="{{ selected_value }}" data-company-select-value>
+    <button
+        class="company-custom-select-trigger"
+        type="button"
+        data-company-select-trigger
+        aria-expanded="false"
+        aria-haspopup="listbox"
+        aria-controls="{{ select_id }}-menu"
+    >
+        <span class="company-custom-select-text" data-company-select-text>{{ selected_value }}</span>
+        <span class="company-custom-select-arrow" aria-hidden="true"></span>
+    </button>
+    <div
+        id="{{ select_id }}-menu"
+        class="company-custom-select-menu"
+        data-company-select-menu
+        role="listbox"
+        hidden
+    >
+        {% for option in options %}
+        <button
+            class="company-custom-select-option{% if option == selected_value %} is-selected{% endif %}"
+            type="button"
+            data-company-select-option
+            data-value="{{ option }}"
+            role="option"
+            aria-selected="{{ 'true' if option == selected_value else 'false' }}"
+        >
+            {{ option }}
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{%- endmacro %}
 
 <header class="ribbon">
     <a class="ribbon-brand" href="/">PathForge.</a>
@@ -31,10 +80,50 @@
         <a class="ribbon-link {% if section == 'eligible' %}active{% endif %}" href="{{ eligible_href }}">Eligible</a>
         <a class="ribbon-link {% if section == 'applied' %}active{% endif %}" href="{{ applied_href }}">Applied</a>
     </nav>
-    <div class="ribbon-actions">
-        <form class="ribbon-action-form" method="post" action="/company/logout">
-            <button type="submit" class="ribbon-action ribbon-action--solid">Logout</button>
-        </form>
+
+    <div class="student-ribbon-tools" data-student-toolbar>
+        <div class="student-ribbon-menu" data-student-menu>
+            <button
+                class="student-ribbon-trigger"
+                type="button"
+                aria-label="Company profile"
+                aria-expanded="false"
+                data-student-menu-trigger
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4.5 19.2a7.5 7.5 0 0 1 15 0"></path>
+                </svg>
+            </button>
+
+            <section class="student-ribbon-panel student-ribbon-panel--profile" data-student-menu-panel hidden>
+                <div class="student-ribbon-panel-head student-ribbon-panel-head--profile">
+                    <div>
+                        <h3>{{ company.get("username", "Company") }}</h3>
+                        <p>Your company profile</p>
+                    </div>
+                </div>
+
+                <div class="student-profile-grid">
+                    <div class="student-profile-item">
+                        <span>Username</span>
+                        <strong>{{ company.get("username", "-") }}</strong>
+                    </div>
+                    <div class="student-profile-item">
+                        <span>Company ID</span>
+                        <strong>{{ company.get("id", "-") }}</strong>
+                    </div>
+                    <div class="student-profile-item">
+                        <span>Total Jobs</span>
+                        <strong>{{ jobs|length }}</strong>
+                    </div>
+                </div>
+
+                <form method="post" action="/company/logout" class="student-profile-logout">
+                    <button class="student-profile-logout-button" type="submit">Logout</button>
+                </form>
+            </section>
+        </div>
     </div>
 </header>
 
@@ -43,328 +132,208 @@
     <div class="status-banner status-error">{{ error }}</div>
     {% endif %}
 
-    <header class="company-shell-head">
-        <div class="company-shell-copy">
-            <h1>Company Dashboard</h1>
-            <p class="company-shell-subtitle">
-                Logged in as {{ company.get('username', 'Company') }}. Track your active role, review candidates, and shortlist faster.
-            </p>
-        </div>
+    <header class="company-page-head">
+        {% if section == "eligible" %}
+        <h1>Eligible Students</h1>
+        <p>Students already matching your role filters and ready for review.</p>
+        {% elif section == "applied" %}
+        <h1>Applied Students</h1>
+        <p>Review applications, shortlist candidates, and track the current role.</p>
+        {% else %}
+        <h1>Company Dashboard</h1>
+        <p>Logged in as {{ company.get("username", "Company") }}. Review the current hiring data in one place.</p>
+        {% endif %}
     </header>
 
     {% if section == "dashboard" %}
-    <section class="company-dashboard-deck" data-company-deck>
-        <article class="company-feature-card company-feature-card--snapshot" data-company-card="snapshot">
-            <div class="company-feature-shell">
-                <div class="company-feature-head">
-                    <span class="company-feature-kicker">Hiring Snapshot</span>
-                    <h2>Keep the live funnel in one view.</h2>
-                    <p>Active job progress, application movement, and shortlist health for the current hiring cycle.</p>
-                </div>
-
-                <button class="company-feature-button" type="button" data-company-open="snapshot" aria-expanded="false">
-                    <span>Reveal info</span>
-                    <span class="company-feature-arrow" aria-hidden="true">&#8594;</span>
-                </button>
-
-                <div class="company-feature-panel" aria-hidden="true">
-                    <div class="company-feature-panel-layout">
-                        <div class="company-feature-panel-copy company-feature-panel-copy--chart">
-                            <span>Shortlist Fill</span>
-                            <div class="company-pie-chart" style="--company-pie-progress: {{ snapshot_percent }}%;">
-                                <span class="company-pie-chart-label">{{ snapshot_percent }}%</span>
-                            </div>
-                            <p>{{ shortlisted_students|length }} of {{ snapshot_goal }} target seats filled.</p>
-                        </div>
-
-                        <div class="company-feature-stat-grid company-feature-stat-grid--panel">
-                            <div class="company-feature-stat company-feature-stat--panel">
-                                <span>Eligible Pool</span>
-                                <strong>{{ data.get('eligible_count', 0) }}</strong>
-                            </div>
-                            <div class="company-feature-stat company-feature-stat--panel">
-                                <span>Applied</span>
-                                <strong>{{ status_counts.get('applied', 0) }}</strong>
-                            </div>
-                            <div class="company-feature-stat company-feature-stat--panel">
-                                <span>Shortlisted</span>
-                                <strong>{{ shortlisted_students|length }}</strong>
-                            </div>
-                            <div class="company-feature-stat company-feature-stat--panel">
-                                <span>Pending Invites</span>
-                                <strong>{{ status_counts.get('pending', 0) }}</strong>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="company-feature-panel-grid">
-                        <div class="company-feature-panel-tile">
-                            <span>Active Job</span>
-                            <strong>{{ active_job.get('id', '-') if active_job else '-' }}</strong>
-                        </div>
-                        <div class="company-feature-panel-tile">
-                            <span>Total Jobs</span>
-                            <strong>{{ jobs|length }}</strong>
-                        </div>
-                        <div class="company-feature-panel-tile">
-                            <span>Declined</span>
-                            <strong>{{ status_counts.get('declined', 0) }}</strong>
-                        </div>
-                        <div class="company-feature-panel-tile">
-                            <span>Shortlist Limit</span>
-                            <strong>{{ shortlist_limit if shortlist_limit else '-' }}</strong>
-                        </div>
-                    </div>
-
-                    <div class="company-feature-panel-copy">
-                        <span>Live Focus</span>
-                        <p>
-                            {% if active_job %}
-                            {{ active_job.get('job_title', 'Active role') }} is currently live. Use the other cards to switch jobs, inspect requirements, and review shortlisted candidates without leaving the dashboard.
-                            {% else %}
-                            No active job is selected right now. Open the jobs card to choose a role and populate the funnel details.
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </article>
-
-        <article class="company-feature-card company-feature-card--jobs" data-company-card="jobs">
-            <div class="company-feature-shell">
-                <div class="company-feature-head">
-                    <span class="company-feature-kicker">Jobs</span>
-                    <h2>{{ jobs|length }} role{% if jobs|length != 1 %}s{% endif %} ready to review.</h2>
-                    <p>Switch the active role from here without leaving the main dashboard.</p>
-                </div>
-
-                <button class="company-feature-button" type="button" data-company-open="jobs" aria-expanded="false">
-                    <span>Reveal info</span>
-                    <span class="company-feature-arrow" aria-hidden="true">&#8594;</span>
-                </button>
-
-                <div class="company-feature-panel" aria-hidden="true">
-                    <div class="company-feature-inline-metric company-feature-inline-metric--panel">
-                        <span>Current Focus</span>
-                        <strong>{{ active_job.get('job_title', 'No active job') if active_job else 'No active job' }}</strong>
-                    </div>
-
-                    <div class="company-job-list company-job-list--deck">
-                        {% for job in jobs %}
-                        <a
-                            class="company-job-chip{% if active_job_id == job.get('id') %} is-active{% endif %}"
-                            href="/company/dashboard?job_id={{ job.get('id') }}&top={{ top_filter }}&section={{ section }}"
-                        >
-                            <span class="company-job-chip-title">{{ job.get('job_title', 'Job') }}</span>
-                            <span class="company-job-chip-meta">ID {{ job.get('id') }}</span>
-                        </a>
-                        {% else %}
-                        <div class="company-empty-state company-empty-state--glass">No jobs found.</div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </article>
-
-        <article class="company-feature-card company-feature-card--active" data-company-card="active">
-            <div class="company-feature-shell">
-                <div class="company-feature-head">
-                    <span class="company-feature-kicker">Active Job</span>
-                    <h2>{{ active_job.get('job_title', 'No active job') if active_job else 'No active job' }}</h2>
-                    <p>Role rules, description, and must-have skills for the job that is currently in focus.</p>
-                </div>
-
-                <button class="company-feature-button" type="button" data-company-open="active" aria-expanded="false">
-                    <span>Reveal info</span>
-                    <span class="company-feature-arrow" aria-hidden="true">&#8594;</span>
-                </button>
-
-                <div class="company-feature-panel" aria-hidden="true">
-                    {% if active_job %}
-                    <div class="company-feature-inline-split company-feature-inline-split--panel">
-                        <div class="company-feature-inline-metric company-feature-inline-metric--panel">
-                            <span>Min CGPA</span>
-                            <strong>{{ active_job.get('min_cgpa', '-') }}</strong>
-                        </div>
-                        <div class="company-feature-inline-metric company-feature-inline-metric--panel">
-                            <span>Backlog Rule</span>
-                            <strong>{% if active_job.get('allow_active_backlog') %}Allowed{% else %}Not Allowed{% endif %}</strong>
-                        </div>
-                    </div>
-
-                    <div class="company-active-meta company-active-meta--glass">
-                        <div class="company-meta-tile">
-                            <span>Shortlist Limit</span>
-                            <strong>{{ active_job.get('shortlist_count', '-') }}</strong>
-                        </div>
-                        <div class="company-meta-tile">
-                            <span>Deadline</span>
-                            <strong>{{ active_job.get('application_deadline', '-') }}</strong>
-                        </div>
-                    </div>
-
-                    <div class="company-detail-block company-detail-block--glass">
-                        <span>Description</span>
-                        <p>{{ active_job.get('job_description', '') }}</p>
-                    </div>
-
-                    <div class="company-detail-block company-detail-block--glass">
-                        <span>Required Skills</span>
-                        <div class="company-skill-cloud">
-                            {% for skill in active_job.get('required_skill_labels', []) %}
-                            <span class="company-skill-chip">{{ skill }}</span>
-                            {% else %}
-                            <span class="company-skill-chip is-empty">No required skills listed.</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="company-feature-inline-metric company-feature-inline-metric--panel">
-                        <span>Status</span>
-                        <strong>Select a job to load details.</strong>
-                    </div>
-
-                    <div class="company-empty-state company-empty-state--glass">No active job selected.</div>
-                    {% endif %}
-                </div>
-            </div>
-        </article>
-
-        <article class="company-feature-card company-feature-card--shortlist" data-company-card="shortlist">
-            <div class="company-feature-shell">
-                <div class="company-feature-head">
-                    <span class="company-feature-kicker">Shortlisted Students</span>
-                    <h2>{{ shortlisted_students|length }} shortlisted right now.</h2>
-                    <p>Keep a quick view of the strongest candidates already moved to the next step.</p>
-                </div>
-
-                <button class="company-feature-button" type="button" data-company-open="shortlist" aria-expanded="false">
-                    <span>Reveal info</span>
-                    <span class="company-feature-arrow" aria-hidden="true">&#8594;</span>
-                </button>
-
-                <div class="company-feature-panel" aria-hidden="true">
-                    <div class="company-feature-inline-metric company-feature-inline-metric--panel">
-                        <span>Top Candidate</span>
-                        <strong>
-                            {% if shortlisted_students %}
-                            {{ shortlisted_students[0].get('student_name') or ('Student ' ~ shortlisted_students[0].get('student_id', '-')) }}
-                            {% else %}
-                            No one shortlisted yet
-                            {% endif %}
-                        </strong>
-                    </div>
-
-                    <div class="company-stacked-list">
-                        {% for student_row in shortlisted_students %}
-                        <article class="company-stacked-item company-stacked-item--glass">
-                            <div>
-                                <p class="company-stacked-title">{{ student_row.get('student_name') or ('Student ' ~ student_row.get('student_id', '-')) }}</p>
-                                <p class="company-stacked-copy">Final Score: {{ student_row.get('final_score', '-') }}</p>
-                            </div>
-                        </article>
-                        {% else %}
-                        <div class="company-empty-state company-empty-state--glass">No shortlisted students yet.</div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </article>
-    </section>
-    {% else %}
-    <section class="company-summary-strip" aria-label="Hiring summary">
-        <div class="company-summary-tile">
-            <span>Active Job</span>
-            <strong>{{ active_job.get('id', '-') if active_job else '-' }}</strong>
-        </div>
-        <div class="company-summary-tile">
-            <span>Eligible Pool</span>
+    <section class="company-summary-grid">
+        <article class="company-summary-card">
+            <span>Eligible</span>
             <strong>{{ data.get('eligible_count', 0) }}</strong>
-        </div>
-        <div class="company-summary-tile">
+        </article>
+        <article class="company-summary-card">
             <span>Applied</span>
             <strong>{{ status_counts.get('applied', 0) }}</strong>
-        </div>
-        <div class="company-summary-tile">
+        </article>
+        <article class="company-summary-card">
+            <span>Pending</span>
+            <strong>{{ status_counts.get('pending', 0) }}</strong>
+        </article>
+        <article class="company-summary-card">
+            <span>Declined</span>
+            <strong>{{ status_counts.get('declined', 0) }}</strong>
+        </article>
+        <article class="company-summary-card">
             <span>Shortlisted</span>
             <strong>{{ shortlisted_students|length }}</strong>
+        </article>
+        <article class="company-summary-card">
+            <span>Shortlist Limit</span>
+            <strong>{{ active_job.get('shortlist_count', '-') if active_job else '-' }}</strong>
+        </article>
+    </section>
+
+    <section class="company-feature-stage">
+        <div class="company-content-grid">
+            <div class="company-sidebar-column">
+                <article class="company-panel company-panel--jobs">
+                    <div class="company-section-head">
+                        <div>
+                            <h2>Jobs</h2>
+                            <p>Select a role to update the dashboard view.</p>
+                        </div>
+                    </div>
+
+                    {% if jobs %}
+                    <div class="company-list">
+                        {% for job in jobs %}
+                        <a
+                            class="company-list-link{% if active_job_id == job.get('id') %} is-active{% endif %}"
+                            href="/company/dashboard?job_id={{ job.get('id') }}&top={{ top_filter }}&section=dashboard"
+                        >
+                            <strong>{{ job.get('job_title') or job.get('title') or 'Job' }}</strong>
+                            <span>ID {{ job.get('id') }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="company-empty-text">No jobs found yet.</p>
+                    {% endif %}
+                </article>
+
+                <article class="company-panel company-panel--analytics">
+                    <div class="company-section-head">
+                        <div>
+                            <h2>Analytics</h2>
+                            <p>Current application split for this dashboard.</p>
+                        </div>
+                    </div>
+
+                    <div class="company-donut-layout">
+                        <div class="company-donut-surface">
+                            {% if analytics_total > 0 %}
+                            <div
+                                class="company-donut-chart"
+                                style="--company-applied-end: {{ analytics_applied_end }}%; --company-declined-end: {{ analytics_declined_end }}%;"
+                            >
+                                <div class="company-donut-hole">
+                                    <strong>{{ analytics_total }}</strong>
+                                    <span>Responses</span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="company-donut-chart company-donut-chart--empty">
+                                <div class="company-donut-hole">
+                                    <strong>0</strong>
+                                    <span>Responses</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="company-donut-legend">
+                            <div class="company-donut-legend-item">
+                                <span class="company-donut-swatch company-donut-swatch--applied"></span>
+                                <div>
+                                    <strong>{{ analytics_applied }}</strong>
+                                    <span>Applied</span>
+                                </div>
+                            </div>
+                            <div class="company-donut-legend-item">
+                                <span class="company-donut-swatch company-donut-swatch--declined"></span>
+                                <div>
+                                    <strong>{{ analytics_declined }}</strong>
+                                    <span>Declined</span>
+                                </div>
+                            </div>
+                            <div class="company-donut-legend-item">
+                                <span class="company-donut-swatch company-donut-swatch--pending"></span>
+                                <div>
+                                    <strong>{{ analytics_pending }}</strong>
+                                    <span>Pending</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <article class="company-panel company-panel--hero">
+                <div class="company-section-head">
+                    <div>
+                        <h2>{{ company_name_display }}</h2>
+                    </div>
+                </div>
+
+                {% if active_job %}
+                <div class="company-meta-grid">
+                    <div class="company-meta-item">
+                        <span>Min CGPA</span>
+                        <strong>{{ active_job.get('min_cgpa', '-') }}</strong>
+                    </div>
+                    <div class="company-meta-item">
+                        <span>Backlog Rule</span>
+                        <strong>{% if active_job.get('allow_active_backlog') %}Allowed{% else %}Not Allowed{% endif %}</strong>
+                    </div>
+                    <div class="company-meta-item">
+                        <span>Shortlist Count</span>
+                        <strong>{{ active_job.get('shortlist_count', '-') }}</strong>
+                    </div>
+                    <div class="company-meta-item">
+                        <span>Deadline</span>
+                        <strong>{{ active_job.get('application_deadline', '-') }}</strong>
+                    </div>
+                </div>
+
+                <div class="company-detail-block">
+                    <h3>Description</h3>
+                    <p>{{ active_job.get('job_description', '') or 'No description added yet.' }}</p>
+                </div>
+
+                <div class="company-detail-block">
+                    <h3>Required Skills</h3>
+                    <div class="company-tag-list">
+                        {% for skill in active_job.get('required_skill_labels', []) %}
+                        <span class="company-tag">{{ skill }}</span>
+                        {% else %}
+                        <span class="company-empty-chip">No required skills listed.</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="company-empty-text">No active job selected.</p>
+                {% endif %}
+            </article>
         </div>
     </section>
 
-    <div class="company-overview-grid">
-        <section class="company-card company-jobs-card">
-            <div class="company-card-head">
-                <h2>Jobs</h2>
-                <p>Switch between active company roles without leaving the dashboard.</p>
+    <section class="company-panel">
+        <div class="company-section-head">
+            <div>
+                <h2>Shortlisted Students</h2>
+                <p>Students already moved into your shortlist.</p>
             </div>
+        </div>
 
-            <div class="company-job-list">
-                {% for job in jobs %}
-                <a
-                    class="company-job-chip{% if active_job_id == job.get('id') %} is-active{% endif %}"
-                    href="/company/dashboard?job_id={{ job.get('id') }}&top={{ top_filter }}&section={{ section }}"
-                >
-                    <span class="company-job-chip-title">{{ job.get('job_title', 'Job') }}</span>
-                    <span class="company-job-chip-meta">ID {{ job.get('id') }}</span>
-                </a>
-                {% else %}
-                <div class="company-empty-state">No jobs found.</div>
-                {% endfor %}
-            </div>
-        </section>
-
-        <section class="company-card company-active-card">
-            <div class="company-card-head">
-                <h2>{{ active_job.get('job_title', 'Active Job') if active_job else 'Active Job' }}</h2>
-                <p>Review the current role setup and screening rules at a glance.</p>
-            </div>
-
-            {% if active_job %}
-            <div class="company-active-meta">
-                <div class="company-meta-tile">
-                    <span>Min CGPA</span>
-                    <strong>{{ active_job.get('min_cgpa', '-') }}</strong>
-                </div>
-                <div class="company-meta-tile">
-                    <span>Backlog Rule</span>
-                    <strong>{% if active_job.get('allow_active_backlog') %}Allowed{% else %}Not Allowed{% endif %}</strong>
-                </div>
-                <div class="company-meta-tile">
-                    <span>Shortlist Limit</span>
-                    <strong>{{ active_job.get('shortlist_count', '-') }}</strong>
-                </div>
-                <div class="company-meta-tile">
-                    <span>Deadline</span>
-                    <strong>{{ active_job.get('application_deadline', '-') }}</strong>
-                </div>
-            </div>
-
-            <div class="company-detail-block">
-                <span>Description</span>
-                <p>{{ active_job.get('job_description', '') }}</p>
-            </div>
-
-            <div class="company-detail-block">
-                <span>Required Skills</span>
-                <div class="company-skill-cloud">
-                    {% for skill in active_job.get('required_skill_labels', []) %}
-                    <span class="company-skill-chip">{{ skill }}</span>
-                    {% else %}
-                    <span class="company-skill-chip is-empty">No required skills listed.</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% else %}
-            <div class="company-empty-state">No active job selected.</div>
-            {% endif %}
-        </section>
-    </div>
-    {% if section == "eligible" %}
-    <section class="company-card company-card--wide">
-        <div class="company-card-head company-card-head--split">
+        {% if shortlisted_students %}
+        <div class="company-list">
+            {% for student_row in shortlisted_students %}
+            <article class="company-list-item">
+                <strong>{{ student_row.get('student_name') or ('Student ' ~ student_row.get('student_id', '-')) }}</strong>
+                <span>Final Score: {{ student_row.get('final_score', '-') }}</span>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="company-empty-text">No shortlisted students yet.</p>
+        {% endif %}
+    </section>
+    {% elif section == "eligible" %}
+    <section class="company-panel">
+        <div class="company-section-head company-section-head--split">
             <div>
                 <h2>Eligible Students</h2>
-                <p>Students already matching your role filters and ready for review.</p>
+                <p>Students already matching your active filters.</p>
             </div>
             <form class="company-filter-form" method="get" action="/company/dashboard">
                 {% if active_job_id %}
@@ -372,59 +341,79 @@
                 {% endif %}
                 <input type="hidden" name="section" value="eligible">
                 <label for="eligible-top">Top</label>
-                <select id="eligible-top" name="top" onchange="this.form.submit()">
-                    {% for option in data.get('top_options', [top_filter]) %}
-                    <option value="{{ option }}" {% if option == top_filter %}selected{% endif %}>{{ option }}</option>
-                    {% endfor %}
-                </select>
+                {{ top_filter_dropdown('eligible-top', top_filter, data.get('top_options', [top_filter])) }}
             </form>
         </div>
 
-        <div class="company-candidate-grid">
-            {% for candidate in eligible_candidates %}
-            <article class="company-candidate-card">
-                <div class="company-candidate-head">
-                    <div>
-                        <p class="company-stacked-title">{{ candidate.get('student_name') or candidate.get('name') or ('Student ' ~ candidate.get('student_id', '-')) }}</p>
-                        <p class="company-stacked-copy">{{ candidate.get('branch', '-') }} | Year {{ candidate.get('current_year', '-') }}</p>
-                    </div>
-                    <span class="company-inline-pill">{{ candidate.get('application_status', '-') }}</span>
-                </div>
-
-                <div class="company-candidate-metrics">
-                    <div class="company-mini-card">
-                        <span>CGPA</span>
-                        <strong>{{ candidate.get('cgpa', '-') }}</strong>
-                    </div>
-                    <div class="company-mini-card">
-                        <span>Final Score</span>
-                        <strong>{{ candidate.get('final_score', '-') }}</strong>
-                    </div>
-                </div>
-
-                <div class="company-detail-block">
-                    <span>Matched Skills</span>
-                    <div class="company-skill-cloud">
-                        {% for skill in candidate.get('matched_skills', []) %}
-                        <span class="company-skill-chip">{{ skill }}</span>
-                        {% else %}
-                        <span class="company-skill-chip is-empty">No matched skills listed.</span>
-                        {% endfor %}
-                    </div>
-                </div>
-            </article>
-            {% else %}
-            <div class="company-empty-state">No eligible students available.</div>
-            {% endfor %}
+        {% if eligible_candidates %}
+        <div class="company-table-wrap company-table-wrap--eligible">
+            <table class="company-student-table" aria-label="Eligible students table">
+                <thead>
+                    <tr>
+                        <th scope="col">Student</th>
+                        <th scope="col">Branch</th>
+                        <th scope="col">Year</th>
+                        <th scope="col">CGPA</th>
+                        <th scope="col">Final Score</th>
+                        <th scope="col">Mentor Score</th>
+                        <th scope="col">Mentor Badge</th>
+                        <th scope="col">Matched Skills</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for candidate in eligible_candidates %}
+                    <tr>
+                        <td>
+                            <div class="company-student-cell">
+                                <strong>{{ candidate.get('student_name') or candidate.get('name') or ('Student ' ~ candidate.get('student_id', '-')) }}</strong>
+                                <span>ID {{ candidate.get('student_id', '-') }}</span>
+                            </div>
+                        </td>
+                        <td>{{ candidate.get('branch', '-') }}</td>
+                        <td>Year {{ candidate.get('current_year', '-') }}</td>
+                        <td>{{ candidate.get('cgpa', '-') }}</td>
+                        <td class="company-student-score">{{ candidate.get('final_score', '-') }}</td>
+                        <td>
+                            <div class="company-mentor-score-cell">
+                                <strong>{{ candidate.get('mentor_score') if candidate.get('mentor_score') is not none else '-' }}</strong>
+                                <span>{{ candidate.get('mentor_people_helped', 0) }} helped</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="company-mentor-badge-wrap">
+                                <span class="company-mentor-badge{% if candidate.get('mentor_badge') %} company-mentor-badge--{{ candidate.get('mentor_badge') }}{% else %} company-mentor-badge--none{% endif %}">
+                                    {{ candidate.get('mentor_badge_label', 'No mentor badge') }}
+                                </span>
+                                {% if candidate.get('mentor_skill_label') %}
+                                <span class="company-mentor-skill">{{ candidate.get('mentor_skill_label') }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="company-table-tags">
+                                {% for skill in candidate.get('matched_skills', []) %}
+                                <span class="company-tag">{{ skill }}</span>
+                                {% else %}
+                                <span class="company-empty-chip">No matched skills listed.</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% else %}
+        <p class="company-empty-text">No eligible students available.</p>
+        {% endif %}
     </section>
     {% elif section == "applied" %}
-    <div class="company-content-grid company-content-grid--applied">
-        <section class="company-card company-card--wide">
-            <div class="company-card-head company-card-head--split">
+    <section class="company-content-grid company-content-grid--applied">
+        <article class="company-panel">
+            <div class="company-section-head company-section-head--split">
                 <div>
                     <h2>Applied Students</h2>
-                    <p>Review the students who applied and choose who to shortlist.</p>
+                    <p>Choose candidates to move into the shortlist.</p>
                 </div>
                 <form class="company-filter-form" method="get" action="/company/dashboard">
                     {% if active_job_id %}
@@ -432,98 +421,171 @@
                     {% endif %}
                     <input type="hidden" name="section" value="applied">
                     <label for="applied-top">Top</label>
-                    <select id="applied-top" name="top" onchange="this.form.submit()">
-                        {% for option in data.get('top_options', [top_filter]) %}
-                        <option value="{{ option }}" {% if option == top_filter %}selected{% endif %}>{{ option }}</option>
+                    {{ top_filter_dropdown('applied-top', top_filter, data.get('top_options', [top_filter])) }}
+                </form>
+            </div>
+
+            {% if active_job_id and applied_candidates %}
+            <form method="post" action="/company/jobs/{{ active_job_id }}/shortlist?top={{ top_filter }}&section=applied">
+                <div class="company-checkbox-list">
+                    {% for candidate in applied_candidates %}
+                    <label class="company-checkbox-item">
+                        <input type="checkbox" name="selected_student_ids" value="{{ candidate.get('student_id') }}">
+                        <div>
+                            <strong>{{ candidate.get('student_name') or candidate.get('name') or ('Student ' ~ candidate.get('student_id', '-')) }}</strong>
+                            <span>{{ candidate.get('branch', '-') }} | Year {{ candidate.get('current_year', '-') }} | CGPA {{ candidate.get('cgpa', '-') }} | Score {{ candidate.get('final_score', '-') }}</span>
+                        </div>
+                    </label>
                     {% endfor %}
-                </select>
+                </div>
+
+                <div class="company-form-actions">
+                    <button type="submit" class="company-action-button">Shortlist Selected</button>
+                </div>
             </form>
-        </div>
-
-        <form method="post" action="/company/jobs/{{ active_job_id }}/shortlist?top={{ top_filter }}&section=applied" class="company-list-form">
-            <div class="company-application-list">
-                {% for candidate in applied_candidates %}
-                <label class="company-application-item">
-                    <input type="checkbox" name="selected_student_ids" value="{{ candidate.get('student_id') }}">
-                    <div class="company-application-copy">
-                        <p class="company-stacked-title">{{ candidate.get('student_name') or candidate.get('name') or ('Student ' ~ candidate.get('student_id', '-')) }}</p>
-                        <p class="company-stacked-copy">{{ candidate.get('branch', '-') }} | Year {{ candidate.get('current_year', '-') }} | CGPA {{ candidate.get('cgpa', '-') }}</p>
-                    </div>
-                    <span class="company-inline-pill">Score {{ candidate.get('final_score', '-') }}</span>
-                </label>
-                {% else %}
-                <div class="company-empty-state">No applied students yet.</div>
-                {% endfor %}
-            </div>
-
-            {% if applied_candidates %}
-            <div class="company-form-actions">
-                <button type="submit" class="company-action-button company-action-button--solid">Shortlist Selected</button>
-            </div>
+            {% elif applied_candidates %}
+            <p class="company-empty-text">Select a job first to shortlist students.</p>
+            {% else %}
+            <p class="company-empty-text">No applied students yet.</p>
             {% endif %}
-        </form>
-        </section>
+        </article>
 
-        <section class="company-card">
-            <div class="company-card-head">
-                <h2>Shortlisted Students</h2>
-                <p>Students already chosen for the next step.</p>
+        <article class="company-panel">
+            <div class="company-section-head">
+                <div>
+                    <h2>Shortlisted Students</h2>
+                    <p>Students already selected for the current role.</p>
+                </div>
             </div>
 
-            <div class="company-stacked-list">
+            {% if shortlisted_students %}
+            <div class="company-list">
                 {% for student_row in shortlisted_students %}
-                <article class="company-stacked-item">
-                    <div>
-                        <p class="company-stacked-title">{{ student_row.get('student_name') or ('Student ' ~ student_row.get('student_id', '-')) }}</p>
-                        <p class="company-stacked-copy">Final Score: {{ student_row.get('final_score', '-') }}</p>
-                    </div>
+                <article class="company-list-item">
+                    <strong>{{ student_row.get('student_name') or ('Student ' ~ student_row.get('student_id', '-')) }}</strong>
+                    <span>Final Score: {{ student_row.get('final_score', '-') }}</span>
                 </article>
-                {% else %}
-                <div class="company-empty-state">No shortlisted students yet.</div>
                 {% endfor %}
             </div>
-        </section>
-    </div>
-    {% endif %}
+            {% else %}
+            <p class="company-empty-text">No shortlisted students yet.</p>
+            {% endif %}
+        </article>
+    </section>
     {% endif %}
 </main>
+
+<script src="/static/js/student_ribbon.js?v={{ asset_version|default('1') }}"></script>
 <script>
-    (() => {
-        const deck = document.querySelector("[data-company-deck]");
-        if (!deck) {
+(function () {
+    const selectRoots = Array.from(document.querySelectorAll("[data-company-select]"));
+    if (!selectRoots.length) {
+        return;
+    }
+
+    let openSelect = null;
+
+    function closeSelect(selectRoot) {
+        if (!selectRoot) {
             return;
         }
+        const trigger = selectRoot.querySelector("[data-company-select-trigger]");
+        const menu = selectRoot.querySelector("[data-company-select-menu]");
+        if (trigger) {
+            trigger.setAttribute("aria-expanded", "false");
+        }
+        if (menu) {
+            menu.hidden = true;
+        }
+        selectRoot.classList.remove("is-open");
+        if (openSelect === selectRoot) {
+            openSelect = null;
+        }
+    }
 
-        const cards = Array.from(deck.querySelectorAll("[data-company-card]"));
-        const buttons = Array.from(deck.querySelectorAll("[data-company-open]"));
+    function closeAllSelects(exceptRoot) {
+        selectRoots.forEach(function (selectRoot) {
+            if (selectRoot !== exceptRoot) {
+                closeSelect(selectRoot);
+            }
+        });
+    }
 
-        const setActive = (key) => {
-            cards.forEach((card) => {
-                const isActive = card.dataset.companyCard === key;
-                card.classList.toggle("is-active", isActive);
-                const button = card.querySelector("[data-company-open]");
-                const panel = card.querySelector(".company-feature-panel");
-                if (button) {
-                    button.setAttribute("aria-expanded", isActive ? "true" : "false");
-                    button.querySelector("span").textContent = isActive ? "Hide info" : "Reveal info";
-                }
-                if (panel) {
-                    panel.setAttribute("aria-hidden", isActive ? "false" : "true");
+    selectRoots.forEach(function (selectRoot) {
+        const hiddenInput = selectRoot.querySelector("[data-company-select-value]");
+        const trigger = selectRoot.querySelector("[data-company-select-trigger]");
+        const textNode = selectRoot.querySelector("[data-company-select-text]");
+        const optionNodes = Array.from(selectRoot.querySelectorAll("[data-company-select-option]"));
+
+        function syncSelectedOption(selectedValue) {
+            optionNodes.forEach(function (optionNode) {
+                const optionValue = optionNode.getAttribute("data-value") || "";
+                const isSelected = optionValue === selectedValue;
+                optionNode.classList.toggle("is-selected", isSelected);
+                optionNode.setAttribute("aria-selected", isSelected ? "true" : "false");
+                if (isSelected && textNode) {
+                    textNode.textContent = optionValue;
                 }
             });
-        };
+        }
 
-        buttons.forEach((button) => {
-            button.addEventListener("click", () => {
-                const key = button.dataset.companyOpen;
-                const card = deck.querySelector(`[data-company-card="${key}"]`);
-                const isActive = card && card.classList.contains("is-active");
-                setActive(isActive ? null : key);
-            });
+        syncSelectedOption(hiddenInput ? hiddenInput.value : "");
+
+        trigger?.addEventListener("click", function () {
+            const shouldOpen = !selectRoot.classList.contains("is-open");
+            closeAllSelects(selectRoot);
+            if (!shouldOpen) {
+                closeSelect(selectRoot);
+                return;
+            }
+            selectRoot.classList.add("is-open");
+            trigger.setAttribute("aria-expanded", "true");
+            const menu = selectRoot.querySelector("[data-company-select-menu]");
+            if (menu) {
+                menu.hidden = false;
+            }
+            openSelect = selectRoot;
         });
 
-        setActive(null);
-    })();
+        optionNodes.forEach(function (optionNode) {
+            optionNode.addEventListener("click", function () {
+                if (hiddenInput) {
+                    hiddenInput.value = optionNode.getAttribute("data-value") || "";
+                }
+                syncSelectedOption(hiddenInput ? hiddenInput.value : "");
+                closeSelect(selectRoot);
+                const form = selectRoot.closest("form");
+                if (form) {
+                    form.submit();
+                }
+            });
+        });
+    });
+
+    document.addEventListener("click", function (event) {
+        if (!openSelect || openSelect.contains(event.target)) {
+            return;
+        }
+        closeSelect(openSelect);
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key !== "Escape" || !openSelect) {
+            return;
+        }
+        const activeSelect = openSelect;
+        closeSelect(activeSelect);
+        const trigger = activeSelect.querySelector("[data-company-select-trigger]");
+        trigger?.focus();
+    });
+
+    document.addEventListener("focusin", function (event) {
+        if (!openSelect || openSelect.contains(event.target)) {
+            return;
+        }
+        closeSelect(openSelect);
+    });
+})();
 </script>
 </body>
 </html>

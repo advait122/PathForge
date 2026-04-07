@@ -41,7 +41,7 @@ body {
 .company-signup-layout {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: clamp(28px, 4vw, 56px);
     width: 100%;
 }
@@ -54,24 +54,15 @@ body {
 .company-signup-visual {
     position: relative;
     width: 100%;
+    min-height: 300px;
     border-radius: 22px;
     overflow: hidden;
-    background: #ffffff;
+    background: linear-gradient(180deg, #ffe36f 0%, #f0c83f 100%);
     box-shadow: 0 16px 34px rgba(15, 23, 42, 0.2);
 }
 
 .company-signup-visual::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.24) 100%);
-}
-
-.company-signup-visual img {
-    display: block;
-    width: 100%;
-    height: auto;
+    content: none;
 }
 
 .company-signup-visual-link {
@@ -111,7 +102,7 @@ body {
 
 .company-signup-card {
     width: min(440px, 100%);
-    margin-left: auto;
+    margin-left: 0;
 }
 
 .company-signup-card h1 {

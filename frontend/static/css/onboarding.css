@@ -32,6 +32,16 @@ main {
     padding: 96px 24px 24px;
 }
 
+.onboarding-main.is-auth-centered,
+.onboarding-main.is-signup-initial {
+    max-width: 1200px;
+    min-height: calc(100vh - 96px);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 h1,
 h2,
 h3 {
@@ -163,6 +173,37 @@ section {
     content: "\2192";
     font-size: 28px;
     line-height: 1;
+}
+
+.signup-layout:not(.is-details-stage) {
+    align-items: center;
+    justify-content: center;
+    width: min(980px, 100%);
+    min-height: calc(100vh - 160px);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.signup-layout:not(.is-details-stage) .signup-card {
+    flex: 0 1 min(440px, 100%);
+    width: min(440px, 100%);
+    max-width: min(440px, 100%);
+}
+
+.signup-layout:not(.is-details-stage) .signup-side-panel {
+    flex: 0 1 min(430px, 100%);
+    width: min(430px, 100%);
+    margin-top: 0;
+}
+
+.signup-layout:not(.is-details-stage) .signup-side-card {
+    min-height: 300px;
+    background: linear-gradient(180deg, #ffe36f 0%, #f0c83f 100%);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.2);
+}
+
+.signup-layout:not(.is-details-stage) .signup-side-card::after {
+    content: none;
 }
 
 .signup-layout.is-details-stage {
@@ -659,6 +700,12 @@ section {
     border: none;
 }
 
+.signup-step[data-step="1"] .signup-next {
+    font: inherit;
+    font-size: 1.08rem;
+    font-weight: 700;
+}
+
 .signup-actions.two-buttons {
     display: flex;
     gap: 12px;
@@ -694,19 +741,32 @@ section {
 
 .login-layout {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: center;
     gap: clamp(24px, 4vw, 56px);
     margin-top: clamp(12px, 3vh, 28px);
+    min-height: calc(100vh - 160px);
+    width: 100%;
+}
+
+.onboarding-main.is-auth-centered .login-layout {
+    margin-top: 0;
+    min-height: auto;
+    width: min(980px, 100%);
+}
+
+.onboarding-main.is-signup-initial .signup-layout:not(.is-details-stage) {
+    margin-top: 0;
+    min-height: auto;
 }
 
 .login-card {
-    width: auto;
-    max-width: none;
+    width: min(440px, 100%);
+    max-width: min(440px, 100%);
     min-width: 0;
-    flex: 1 1 56%;
+    flex: 0 1 min(440px, 100%);
     margin-left: 0;
-    margin-top: clamp(24px, 8vh, 72px);
+    margin-top: 0;
     border: none;
     box-shadow: none;
 }
@@ -755,9 +815,9 @@ section {
 }
 
 .company-card-panel {
-    flex: 0 1 min(430px, 42%);
+    flex: 0 1 min(430px, 100%);
     width: min(430px, 100%);
-    margin-top: clamp(24px, 8vh, 72px);
+    margin-top: 0;
 }
 
 .company-image-card {
@@ -1027,7 +1087,41 @@ pre {
     text-decoration: underline;
 }
 
+.onboarding-alert {
+    position: fixed;
+    top: 84px;
+    left: 50%;
+    z-index: 1100;
+    width: min(520px, calc(100vw - 32px));
+    margin: 0;
+    padding: 14px 18px;
+    border: 1px solid rgba(217, 82, 82, 0.4);
+    border-radius: 16px;
+    background: rgba(255, 234, 234, 0.98);
+    color: #8f1f1f;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+    transform: translateX(-50%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.onboarding-alert.is-dismissing {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+}
+
 @media (max-width: 640px) {
+    .onboarding-alert {
+        top: 68px;
+        width: calc(100vw - 24px);
+        padding: 12px 14px;
+    }
+
+    .onboarding-main.is-auth-centered,
+    .onboarding-main.is-signup-initial {
+        min-height: auto;
+        display: block;
+    }
+
     .ribbon {
         padding: 10px 12px;
     }
@@ -1043,6 +1137,7 @@ pre {
     .login-layout {
         flex-direction: column;
         gap: 16px;
+        min-height: auto;
     }
 
     .login-card {
@@ -1076,6 +1171,10 @@ pre {
     .signup-layout {
         flex-direction: column;
         gap: 16px;
+    }
+
+    .signup-layout:not(.is-details-stage) {
+        min-height: auto;
     }
 
     .signup-left-reveal-panel {

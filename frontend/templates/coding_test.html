@@ -10,6 +10,19 @@
 </head>
 <body>
 {% set sid = student.get('id', 0) if student else 0 %}
+{% macro coding_language_label(language) -%}
+    {%- set key = (language|string)|lower -%}
+    {%- if key == 'cpp' -%}C++
+    {%- elif key == 'javascript' -%}JavaScript
+    {%- elif key == 'typescript' -%}TypeScript
+    {%- elif key == 'python' -%}Python
+    {%- elif key == 'java' -%}Java
+    {%- elif key == 'go' -%}Go
+    {%- elif key == 'rust' -%}Rust
+    {%- elif key == 'c' -%}C
+    {%- else -%}{{ language }}
+    {%- endif -%}
+{%- endmacro %}
 {% set active_skill = goal_skill if goal_skill is defined else None %}
 {% set section = active_section if active_section is defined and active_section else "tests" %}
 {% set goal_skill_id = active_skill.get('id') if active_skill else None %}
@@ -121,36 +134,21 @@
                         {% endif %}
                     </div>
 
-                    {% set languages = question.get('supported_languages', []) %}
-                    {% if not languages %}
-                        {% if question.get('language') %}
-                            {% set languages = [question.get('language')] %}
-                        {% else %}
-                            {% set languages = ['python', 'cpp'] %}
-                        {% endif %}
-                    {% endif %}
                     <div class="coding-field-group">
-                        <label class="coding-field-label" for="coding-language-{{ loop.index0 }}">Language</label>
-                        {% if languages|length == 1 %}
-                        {% set locked_language_label = languages[0] %}
-                        {% if locked_language_label == 'cpp' %}
-                            {% set locked_language_label = 'C++' %}
-                        {% elif locked_language_label == 'javascript' %}
-                            {% set locked_language_label = 'JavaScript' %}
-                        {% elif locked_language_label == 'typescript' %}
-                            {% set locked_language_label = 'TypeScript' %}
-                        {% elif locked_language_label == 'python' %}
-                            {% set locked_language_label = 'Python' %}
-                        {% elif locked_language_label == 'java' %}
-                            {% set locked_language_label = 'Java' %}
-                        {% elif locked_language_label == 'go' %}
-                            {% set locked_language_label = 'Go' %}
-                        {% elif locked_language_label == 'rust' %}
-                            {% set locked_language_label = 'Rust' %}
-                        {% elif locked_language_label == 'c' %}
-                            {% set locked_language_label = 'C' %}
+                        <label class="coding-field-label">Language</label>
+                        {% set languages = question.get('supported_languages', []) %}
+                        {% if not languages and coding_assessment and coding_assessment.get('locked_language') %}
+                            {% set languages = [coding_assessment.get('locked_language')] %}
                         {% endif %}
-                        <div class="coding-language-lock">{{ locked_language_label }}</div>
+                        {% if not languages %}
+                            {% if question.get('language') %}
+                                {% set languages = [question.get('language')] %}
+                            {% else %}
+                                {% set languages = ['python', 'cpp'] %}
+                            {% endif %}
+                        {% endif %}
+                        {% if languages|length == 1 %}
+                        <div class="coding-language-lock">{{ coding_language_label(languages[0]) }}</div>
                         <input
                             type="hidden"
                             {% if modern_submit %}name="coding_language_{{ loop.index0 }}"{% endif %}
@@ -158,16 +156,48 @@
                             data-coding-language
                         >
                         {% else %}
-                        <select
-                            class="coding-language-select"
-                            id="coding-language-{{ loop.index0 }}"
-                            {% if modern_submit %}name="coding_language_{{ loop.index0 }}"{% endif %}
-                            data-coding-language
-                        >
-                            {% for language in languages %}
-                            <option value="{{ language }}">{{ language }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="coding-custom-select" data-coding-select>
+                            <input
+                                type="hidden"
+                                id="coding-language-value-{{ loop.index0 }}"
+                                {% if modern_submit %}name="coding_language_{{ loop.index0 }}"{% endif %}
+                                value="{{ languages[0] }}"
+                                data-coding-language
+                            >
+                            <button
+                                class="coding-custom-select-trigger"
+                                id="coding-language-{{ loop.index0 }}"
+                                type="button"
+                                data-coding-select-trigger
+                                aria-expanded="false"
+                                aria-haspopup="listbox"
+                                aria-controls="coding-language-menu-{{ loop.index0 }}"
+                            >
+                                <span class="coding-custom-select-text" data-coding-select-text>{{ coding_language_label(languages[0]) }}</span>
+                                <span class="coding-custom-select-arrow" aria-hidden="true"></span>
+                            </button>
+                            <div
+                                id="coding-language-menu-{{ loop.index0 }}"
+                                class="coding-custom-select-menu"
+                                data-coding-select-menu
+                                role="listbox"
+                                hidden
+                            >
+                                {% for language in languages %}
+                                <button
+                                    class="coding-custom-select-option{% if loop.first %} is-selected{% endif %}"
+                                    type="button"
+                                    data-coding-select-option
+                                    data-value="{{ language }}"
+                                    data-label="{{ coding_language_label(language) }}"
+                                    role="option"
+                                    aria-selected="{{ 'true' if loop.first else 'false' }}"
+                                >
+                                    {{ coding_language_label(language) }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% endif %}
                     </div>
 
@@ -333,6 +363,122 @@
     </section>
     {% endif %}
 </main>
+{% if not show_results %}
+<script>
+(function () {
+    const selectRoots = Array.from(document.querySelectorAll("[data-coding-select]"));
+    if (!selectRoots.length) {
+        return;
+    }
+
+    let openSelect = null;
+
+    function closeSelect(selectRoot) {
+        if (!selectRoot) {
+            return;
+        }
+        const trigger = selectRoot.querySelector("[data-coding-select-trigger]");
+        const menu = selectRoot.querySelector("[data-coding-select-menu]");
+        if (trigger) {
+            trigger.setAttribute("aria-expanded", "false");
+        }
+        if (menu) {
+            menu.hidden = true;
+        }
+        selectRoot.classList.remove("is-open");
+        if (openSelect === selectRoot) {
+            openSelect = null;
+        }
+    }
+
+    function closeAllSelects(exceptRoot) {
+        selectRoots.forEach(function (selectRoot) {
+            if (selectRoot !== exceptRoot) {
+                closeSelect(selectRoot);
+            }
+        });
+    }
+
+    selectRoots.forEach(function (selectRoot) {
+        const hiddenInput = selectRoot.querySelector("[data-coding-language]");
+        const trigger = selectRoot.querySelector("[data-coding-select-trigger]");
+        const textNode = selectRoot.querySelector("[data-coding-select-text]");
+        const menu = selectRoot.querySelector("[data-coding-select-menu]");
+        const optionNodes = Array.from(selectRoot.querySelectorAll("[data-coding-select-option]"));
+
+        const syncSelectedOption = function (selectedValue) {
+            optionNodes.forEach(function (optionNode) {
+                const optionValue = optionNode.getAttribute("data-value") || "";
+                const isSelected = optionValue === selectedValue;
+                optionNode.classList.toggle("is-selected", isSelected);
+                optionNode.setAttribute("aria-selected", isSelected ? "true" : "false");
+                if (isSelected && textNode) {
+                    textNode.textContent = optionNode.getAttribute("data-label") || optionNode.textContent.trim();
+                }
+            });
+        };
+
+        syncSelectedOption(hiddenInput ? hiddenInput.value : "");
+
+        trigger?.addEventListener("click", function () {
+            const shouldOpen = !selectRoot.classList.contains("is-open");
+            closeAllSelects(selectRoot);
+            if (!shouldOpen) {
+                closeSelect(selectRoot);
+                return;
+            }
+            selectRoot.classList.add("is-open");
+            trigger.setAttribute("aria-expanded", "true");
+            if (menu) {
+                menu.hidden = false;
+            }
+            openSelect = selectRoot;
+        });
+
+        optionNodes.forEach(function (optionNode) {
+            optionNode.addEventListener("click", function () {
+                if (hiddenInput) {
+                    hiddenInput.value = optionNode.getAttribute("data-value") || "";
+                }
+                syncSelectedOption(hiddenInput ? hiddenInput.value : "");
+                closeSelect(selectRoot);
+                trigger?.focus();
+            });
+        });
+    });
+
+    document.addEventListener("click", function (event) {
+        if (!openSelect) {
+            return;
+        }
+        if (openSelect.contains(event.target)) {
+            return;
+        }
+        closeSelect(openSelect);
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key !== "Escape" || !openSelect) {
+            return;
+        }
+        const activeSelect = openSelect;
+        closeSelect(activeSelect);
+        const trigger = activeSelect.querySelector("[data-coding-select-trigger]");
+        trigger?.focus();
+    });
+
+    document.addEventListener("focusin", function (event) {
+        if (!openSelect) {
+            return;
+        }
+        if (openSelect.contains(event.target)) {
+            return;
+        }
+        closeSelect(openSelect);
+    });
+})();
+</script>
+{% endif %}
 {% if not show_results and preview_action %}
 <script>
 (function () {
